@@ -1,0 +1,55 @@
+{
+    "name": "leko/laravel-bitrix24",
+    "version": "1.0.0",
+    "description": "Laravel integration package for Bitrix24 CRM with OAuth and Webhook support",
+    "keywords": [
+        "laravel",
+        "bitrix24",
+        "crm",
+        "oauth",
+        "webhook",
+        "api"
+    ],
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Leko Team",
+            "email": "lucy@leko.team"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^10.0|^11.0|^12.0",
+        "illuminate/database": "^10.0|^11.0|^12.0",
+        "illuminate/http": "^10.0|^11.0|^12.0",
+        "mesilov/bitrix24-php-sdk": "^2.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.0",
+        "orchestra/testbench": "^8.0|^9.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Leko\\Bitrix24\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Leko\\Bitrix24\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Leko\\Bitrix24\\Providers\\Bitrix24ServiceProvider"
+            ],
+            "aliases": {
+                "Bitrix24": "Leko\\Bitrix24\\Facades\\Bitrix24"
+            }
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
+

@@ -1,0 +1,47 @@
+# Composer dependencies
+/vendor/
+
+# IDE files
+/.idea/
+/.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Cache
+/.cache/
+
+# Test coverage
+/coverage/
+
+# Build artifacts
+/build/
+/dist/
+
+# Environment files
+.env
+.env.local
+.env.testing
+
+# Laravel specific
+/storage/app/
+/storage/framework/cache/
+/storage/framework/sessions/
+/storage/framework/views/
+/storage/logs/
+/bootstrap/cache/
+
+# Node modules (if any)
+/node_modules/
+npm-debug.log
+yarn-error.log
+
+# Temporary files
+*.tmp
+*.temp
