@@ -76,12 +76,8 @@ class Bitrix24ServiceProvider extends ServiceProvider
      */
     protected function registerRoutes(): void
     {
-        Route::group([
-            'middleware' => 'api',
-            'prefix' => 'api',
-        ], function () {
-            $this->loadRoutesFrom(__DIR__ . '/../../routes/bitrix24.php');
-        });
+        // Routes are now handled in the main application
+        // No need to load routes from package
     }
 
     /**

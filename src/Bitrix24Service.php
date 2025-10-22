@@ -9,6 +9,7 @@ use Leko\Bitrix24\Clients\ContactClient;
 use Leko\Bitrix24\Clients\CrmClient;
 use Leko\Bitrix24\Clients\DealClient;
 use Leko\Bitrix24\Clients\LeadClient;
+use Leko\Bitrix24\Clients\ListClient;
 use Leko\Bitrix24\Clients\TaskClient;
 use Leko\Bitrix24\Clients\UserClient;
 use Leko\Bitrix24\Contracts\Bitrix24ServiceInterface;
@@ -106,6 +107,16 @@ class Bitrix24Service implements Bitrix24ServiceInterface
     public function users(): UserClient
     {
         return new UserClient($this->getServiceBuilder());
+    }
+
+    /**
+     * Получить клиент пользовательских списков.
+     *
+     * @return ListClient
+     */
+    public function lists(): ListClient
+    {
+        return new ListClient($this->getServiceBuilder());
     }
 
     /**

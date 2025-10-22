@@ -11,6 +11,7 @@ use Leko\Bitrix24\Clients\ContactClient;
 use Leko\Bitrix24\Clients\CrmClient;
 use Leko\Bitrix24\Clients\DealClient;
 use Leko\Bitrix24\Clients\LeadClient;
+use Leko\Bitrix24\Clients\ListClient;
 use Leko\Bitrix24\Clients\TaskClient;
 use Leko\Bitrix24\Clients\UserClient;
 
@@ -24,6 +25,7 @@ use Leko\Bitrix24\Clients\UserClient;
  * @method static DealClient deals()
  * @method static TaskClient tasks()
  * @method static UserClient users()
+ * @method static ListClient lists()
  * @method static string getAuthorizationUrl(array $scopes = [], ?string $state = null)
  * @method static array handleCallback(string $code)
  * @method static Bitrix24Service setConnection(string $connection)

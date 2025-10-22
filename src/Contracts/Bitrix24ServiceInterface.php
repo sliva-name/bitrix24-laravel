@@ -9,6 +9,7 @@ use Leko\Bitrix24\Clients\ContactClient;
 use Leko\Bitrix24\Clients\CrmClient;
 use Leko\Bitrix24\Clients\DealClient;
 use Leko\Bitrix24\Clients\LeadClient;
+use Leko\Bitrix24\Clients\ListClient;
 use Leko\Bitrix24\Clients\TaskClient;
 use Leko\Bitrix24\Clients\UserClient;
 
@@ -67,6 +68,13 @@ interface Bitrix24ServiceInterface
      * @return UserClient
      */
     public function users(): UserClient;
+
+    /**
+     * Получить клиент пользовательских списков.
+     *
+     * @return ListClient
+     */
+    public function lists(): ListClient;
 
     /**
      * Получить URL авторизации для OAuth.
