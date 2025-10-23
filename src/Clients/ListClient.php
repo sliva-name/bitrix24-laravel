@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Leko\Bitrix24\Clients;
 
+use Leko\Bitrix24\Contracts\ListClientInterface;
 use Throwable;
 
 /**
@@ -11,7 +12,7 @@ use Throwable;
  *
  * Предоставляет методы для работы с пользовательскими списками CRM.
  */
-class ListClient extends BaseClient
+class ListClient extends BaseClient implements ListClientInterface
 {
     /**
      * Получить список элементов пользовательского списка.
@@ -26,30 +27,28 @@ class ListClient extends BaseClient
      */
     public function list(int $listId, array $filter = [], array $select = ['*'], array $order = ['ID' => 'DESC'], int $start = 0): array
     {
-        try {
-            $params = [
+        $params = $this->buildParams(
+            [
                 'IBLOCK_TYPE_ID' => 'lists',
                 'IBLOCK_ID' => $listId,
-            ];
+            ],
+            [
+                'filter' => $filter,
+                'select' => [
+                    'value' => $select,
+                    'condition' => fn($val) => !empty($val) && !in_array('*', $val)
+                ],
+                'order' => $order,
+                'start' => [
+                    'value' => $start,
+                    'condition' => fn($val) => $val > 0
+                ],
+            ]
+        );
 
-            if (!empty($filter)) {
-                $params['filter'] = $filter;
-            }
-            if (!empty($select) && !in_array('*', $select)) {
-                $params['select'] = $select;
-            }
-            if (!empty($order)) {
-                $params['order'] = $order;
-            }
-            if ($start > 0) {
-                $params['start'] = $start;
-            }
-
-            return $this->callMethod('lists.element.get', $params, fn() => $this->serviceBuilder->getCRMScope()->lists()->getList($listId, $order, $filter, $select, $start)->getListItems()) ?? [];
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return [];
-        }
+        return $this->callMethod('lists.element.get', $params, 
+            fn() => $this->serviceBuilder->getCRMScope()->lists()->getList($listId, $order, $filter, $select, $start)->getListItems()
+        ) ?? [];
     }
 
     /**
@@ -62,16 +61,11 @@ class ListClient extends BaseClient
      */
     public function get(int $listId, int $elementId): ?array
     {
-        try {
-            return $this->callMethod('lists.element.get', [
-                'IBLOCK_TYPE_ID' => 'lists',
-                'IBLOCK_ID' => $listId,
-                'ELEMENT_ID' => $elementId,
-            ], fn() => $this->serviceBuilder->getCRMScope()->lists()->getListElement($listId, $elementId)->getListElement());
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return null;
-        }
+        return $this->callMethod('lists.element.get', [
+            'IBLOCK_TYPE_ID' => 'lists',
+            'IBLOCK_ID' => $listId,
+            'ELEMENT_ID' => $elementId,
+        ], fn() => $this->serviceBuilder->getCRMScope()->lists()->getListElement($listId, $elementId)->getListElement());
     }
 
     /**
@@ -84,16 +78,11 @@ class ListClient extends BaseClient
      */
     public function add(int $listId, array $fields): ?int
     {
-        try {
-            return $this->callMethod('lists.element.add', [
-                'IBLOCK_TYPE_ID' => 'lists',
-                'IBLOCK_ID' => $listId,
-                'fields' => $fields
-            ], fn() => $this->serviceBuilder->getCRMScope()->lists()->addListElement($listId, $fields)->getId());
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return null;
-        }
+        return $this->callMethod('lists.element.add', [
+            'IBLOCK_TYPE_ID' => 'lists',
+            'IBLOCK_ID' => $listId,
+            'fields' => $fields
+        ], fn() => $this->serviceBuilder->getCRMScope()->lists()->addListElement($listId, $fields)->getId());
     }
 
     /**
@@ -107,19 +96,14 @@ class ListClient extends BaseClient
      */
     public function update(int $listId, int $elementId, array $fields): bool
     {
-        try {
-            $result = $this->callMethod('lists.element.update', [
-                'IBLOCK_TYPE_ID' => 'lists',
-                'IBLOCK_ID' => $listId,
-                'ELEMENT_ID' => $elementId,
-                'fields' => $fields
-            ], fn() => $this->serviceBuilder->getCRMScope()->lists()->updateListElement($listId, $elementId, $fields)->isSuccess());
+        $result = $this->callMethod('lists.element.update', [
+            'IBLOCK_TYPE_ID' => 'lists',
+            'IBLOCK_ID' => $listId,
+            'ELEMENT_ID' => $elementId,
+            'fields' => $fields
+        ], fn() => $this->serviceBuilder->getCRMScope()->lists()->updateListElement($listId, $elementId, $fields)->isSuccess());
 
-            return $result === true;
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return false;
-        }
+        return $result === true;
     }
 
     /**
@@ -132,18 +116,13 @@ class ListClient extends BaseClient
      */
     public function delete(int $listId, int $elementId): bool
     {
-        try {
-            $result = $this->callMethod('lists.element.delete', [
-                'IBLOCK_TYPE_ID' => 'lists',
-                'IBLOCK_ID' => $listId,
-                'ELEMENT_ID' => $elementId
-            ], fn() => $this->serviceBuilder->getCRMScope()->lists()->deleteListElement($listId, $elementId)->isSuccess());
+        $result = $this->callMethod('lists.element.delete', [
+            'IBLOCK_TYPE_ID' => 'lists',
+            'IBLOCK_ID' => $listId,
+            'ELEMENT_ID' => $elementId
+        ], fn() => $this->serviceBuilder->getCRMScope()->lists()->deleteListElement($listId, $elementId)->isSuccess());
 
-            return $result === true;
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return false;
-        }
+        return $result === true;
     }
 
     /**
@@ -155,15 +134,10 @@ class ListClient extends BaseClient
      */
     public function fields(int $listId): array
     {
-        try {
-            return $this->callMethod('lists.field.get', [
-                'IBLOCK_TYPE_ID' => 'lists',
-                'IBLOCK_ID' => $listId
-            ], fn() => $this->serviceBuilder->getCRMScope()->lists()->getListFields($listId)->getFieldsDescription()) ?? [];
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return [];
-        }
+        return $this->callMethod('lists.field.get', [
+            'IBLOCK_TYPE_ID' => 'lists',
+            'IBLOCK_ID' => $listId
+        ], fn() => $this->serviceBuilder->getCRMScope()->lists()->getListFields($listId)->getFieldsDescription()) ?? [];
     }
 
     /**
@@ -175,15 +149,10 @@ class ListClient extends BaseClient
      */
     public function getListInfo(int $listId): ?array
     {
-        try {
-            return $this->callMethod('lists.get', [
-                'IBLOCK_TYPE_ID' => 'lists',
-                'IBLOCK_ID' => $listId
-            ], fn() => $this->serviceBuilder->getCRMScope()->lists()->getList($listId)->getList());
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return null;
-        }
+        return $this->callMethod('lists.get', [
+            'IBLOCK_TYPE_ID' => 'lists',
+            'IBLOCK_ID' => $listId
+        ], fn() => $this->serviceBuilder->getCRMScope()->lists()->getList($listId)->getList());
     }
 
     /**
@@ -194,13 +163,8 @@ class ListClient extends BaseClient
      */
     public function getAllLists(): array
     {
-        try {
-            return $this->callMethod('lists.get', [
-                'IBLOCK_TYPE_ID' => 'lists'
-            ], fn() => $this->serviceBuilder->getCRMScope()->lists()->getLists()->getLists()) ?? [];
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return [];
-        }
+        return $this->callMethod('lists.get', [
+            'IBLOCK_TYPE_ID' => 'lists'
+        ], fn() => $this->serviceBuilder->getCRMScope()->lists()->getLists()->getLists()) ?? [];
     }
 }

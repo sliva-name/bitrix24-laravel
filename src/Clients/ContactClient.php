@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Leko\Bitrix24\Clients;
 
 use Bitrix24\SDK\Services\CRM\Contact\Result\ContactItemResult;
+use Leko\Bitrix24\Contracts\ContactClientInterface;
 use Throwable;
 
 /**
@@ -12,7 +13,7 @@ use Throwable;
  *
  * Предоставляет методы для работы с контакты CRM.
  */
-class ContactClient extends BaseClient
+class ContactClient extends BaseClient implements ContactClientInterface
 {
     /**
      * Получить список контакты.
@@ -22,20 +23,16 @@ class ContactClient extends BaseClient
      * @param array $order Сортировка результатов
      * @param int $start Смещение для пагинации
      * @return array
+     * @throws Throwable
      */
     public function list(array $filter = [], array $select = ['*'], array $order = ['ID' => 'DESC'], int $start = 0): array
     {
-        try {
-            return $this->callCrmMethod('contact', 'list', [
-                'filter' => $filter,
-                'select' => $select,
-                'order' => $order,
-                'start' => $start,
-            ], fn() => $this->serviceBuilder->getCRMScope()->contact()->list($order, $filter, $select, $start)->getContacts()) ?? [];
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return [];
-        }
+        return $this->callCrmMethod('contact', 'list', [
+            'filter' => $filter,
+            'select' => $select,
+            'order' => $order,
+            'start' => $start,
+        ], fn() => $this->serviceBuilder->getCRMScope()->contact()->list($order, $filter, $select, $start)->getContacts()) ?? [];
     }
 
     /**
@@ -43,17 +40,13 @@ class ContactClient extends BaseClient
      *
      * @param int $id ID записи
      * @return array|ContactItemResult|null
+     * @throws Throwable
      */
     public function get(int $id): array|ContactItemResult|null
     {
-        try {
-            return $this->callCrmMethod('contact', 'get', [
-                'id' => $id
-            ], fn() => $this->serviceBuilder->getCRMScope()->contact()->get($id)->contact());
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return null;
-        }
+        return $this->callCrmMethod('contact', 'get', [
+            'id' => $id
+        ], fn() => $this->serviceBuilder->getCRMScope()->contact()->get($id)->contact());
     }
 
     /**
@@ -65,14 +58,9 @@ class ContactClient extends BaseClient
      */
     public function add(array $fields): ?int
     {
-        try {
-            return $this->callCrmMethod('contact', 'add', [
-                'fields' => $fields
-            ], fn() => $this->serviceBuilder->getCRMScope()->contact()->add($fields)->getId());
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return null;
-        }
+        return $this->callCrmMethod('contact', 'add', [
+            'fields' => $fields
+        ], fn() => $this->serviceBuilder->getCRMScope()->contact()->add($fields)->getId());
     }
 
     /**
@@ -85,17 +73,12 @@ class ContactClient extends BaseClient
      */
     public function update(int $id, array $fields): bool
     {
-        try {
-            $result = $this->callCrmMethod('contact', 'update', [
-                'id' => $id,
-                'fields' => $fields
-            ], fn() => $this->serviceBuilder->getCRMScope()->contact()->update($id, $fields)->isSuccess());
-            
-            return $result === true;
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return false;
-        }
+        $result = $this->callCrmMethod('contact', 'update', [
+            'id' => $id,
+            'fields' => $fields
+        ], fn() => $this->serviceBuilder->getCRMScope()->contact()->update($id, $fields)->isSuccess());
+        
+        return $result === true;
     }
 
     /**
@@ -107,16 +90,11 @@ class ContactClient extends BaseClient
      */
     public function delete(int $id): bool
     {
-        try {
-            $result = $this->callCrmMethod('contact', 'delete', [
-                'id' => $id
-            ], fn() => $this->serviceBuilder->getCRMScope()->contact()->delete($id)->isSuccess());
-            
-            return $result === true;
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return false;
-        }
+        $result = $this->callCrmMethod('contact', 'delete', [
+            'id' => $id
+        ], fn() => $this->serviceBuilder->getCRMScope()->contact()->delete($id)->isSuccess());
+        
+        return $result === true;
     }
 
     /**
@@ -127,13 +105,8 @@ class ContactClient extends BaseClient
      */
     public function fields(): array
     {
-        try {
-            return $this->callCrmMethod('contact', 'fields', [], 
-                fn() => $this->serviceBuilder->getCRMScope()->contact()->fields()->getFieldsDescription()
-            ) ?? [];
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return [];
-        }
+        return $this->callCrmMethod('contact', 'fields', [], 
+            fn() => $this->serviceBuilder->getCRMScope()->contact()->fields()->getFieldsDescription()
+        ) ?? [];
     }
 }

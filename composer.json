@@ -1,5 +1,5 @@
 {
-    "name": "leko/laravel-bitrix24",
+    "name": "sliva-name/bitrix24-laravel",
     "description": "Laravel integration package for Bitrix24 CRM with OAuth and Webhook support",
     "keywords": [
         "laravel",

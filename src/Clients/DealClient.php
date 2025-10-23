@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Leko\Bitrix24\Clients;
 
 use Bitrix24\SDK\Services\CRM\Deal\Result\DealItemResult;
+use Leko\Bitrix24\Contracts\DealClientInterface;
 use Throwable;
 
 /**
@@ -12,7 +13,7 @@ use Throwable;
  *
  * Предоставляет методы для работы со сделки CRM.
  */
-class DealClient extends BaseClient
+class DealClient extends BaseClient implements DealClientInterface
 {
     /**
      * Получить список сделки.
@@ -26,17 +27,12 @@ class DealClient extends BaseClient
      */
     public function list(array $filter = [], array $select = ['*'], array $order = ['ID' => 'DESC'], int $start = 0): array
     {
-        try {
-            return $this->callCrmMethod('deal', 'list', [
-                'filter' => $filter,
-                'select' => $select,
-                'order' => $order,
-                'start' => $start,
-            ], fn() => $this->serviceBuilder->getCRMScope()->deal()->list($order, $filter, $select, $start)->getDeals()) ?? [];
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return [];
-        }
+        return $this->callCrmMethod('deal', 'list', [
+            'filter' => $filter,
+            'select' => $select,
+            'order' => $order,
+            'start' => $start,
+        ], fn() => $this->serviceBuilder->getCRMScope()->deal()->list($order, $filter, $select, $start)->getDeals()) ?? [];
     }
 
     /**
@@ -48,14 +44,9 @@ class DealClient extends BaseClient
      */
     public function get(int $id): array|DealItemResult|null
     {
-        try {
-            return $this->callCrmMethod('deal', 'get', [
-                'id' => $id
-            ], fn() => $this->serviceBuilder->getCRMScope()->deal()->get($id)->deal());
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return null;
-        }
+        return $this->callCrmMethod('deal', 'get', [
+            'id' => $id
+        ], fn() => $this->serviceBuilder->getCRMScope()->deal()->get($id)->deal());
     }
 
     /**
@@ -67,14 +58,9 @@ class DealClient extends BaseClient
      */
     public function add(array $fields): ?int
     {
-        try {
-            return $this->callCrmMethod('deal', 'add', [
-                'fields' => $fields
-            ], fn() => $this->serviceBuilder->getCRMScope()->deal()->add($fields)->getId());
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return null;
-        }
+        return $this->callCrmMethod('deal', 'add', [
+            'fields' => $fields
+        ], fn() => $this->serviceBuilder->getCRMScope()->deal()->add($fields)->getId());
     }
 
     /**
@@ -87,17 +73,12 @@ class DealClient extends BaseClient
      */
     public function update(int $id, array $fields): bool
     {
-        try {
-            $result = $this->callCrmMethod('deal', 'update', [
-                'id' => $id,
-                'fields' => $fields
-            ], fn() => $this->serviceBuilder->getCRMScope()->deal()->update($id, $fields)->isSuccess());
-            
-            return $result === true;
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return false;
-        }
+        $result = $this->callCrmMethod('deal', 'update', [
+            'id' => $id,
+            'fields' => $fields
+        ], fn() => $this->serviceBuilder->getCRMScope()->deal()->update($id, $fields)->isSuccess());
+        
+        return $result === true;
     }
 
     /**
@@ -109,16 +90,11 @@ class DealClient extends BaseClient
      */
     public function delete(int $id): bool
     {
-        try {
-            $result = $this->callCrmMethod('deal', 'delete', [
-                'id' => $id
-            ], fn() => $this->serviceBuilder->getCRMScope()->deal()->delete($id)->isSuccess());
-            
-            return $result === true;
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return false;
-        }
+        $result = $this->callCrmMethod('deal', 'delete', [
+            'id' => $id
+        ], fn() => $this->serviceBuilder->getCRMScope()->deal()->delete($id)->isSuccess());
+        
+        return $result === true;
     }
 
     /**
@@ -129,13 +105,8 @@ class DealClient extends BaseClient
      */
     public function fields(): array
     {
-        try {
-            return $this->callCrmMethod('deal', 'fields', [], 
-                fn() => $this->serviceBuilder->getCRMScope()->deal()->fields()->getFieldsDescription()
-            ) ?? [];
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return [];
-        }
+        return $this->callCrmMethod('deal', 'fields', [], 
+            fn() => $this->serviceBuilder->getCRMScope()->deal()->fields()->getFieldsDescription()
+        ) ?? [];
     }
 }

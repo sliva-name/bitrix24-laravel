@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Leko\Bitrix24\Clients;
 
+use Leko\Bitrix24\Contracts\TaskClientInterface;
 use Throwable;
 
 /**
@@ -11,7 +12,7 @@ use Throwable;
  *
  * Предоставляет методы для работы с задачами.
  */
-class TaskClient extends BaseClient
+class TaskClient extends BaseClient implements TaskClientInterface
 {
     /**
      * Получить список задач.
@@ -25,17 +26,12 @@ class TaskClient extends BaseClient
      */
     public function list(array $filter = [], array $select = ['*'], array $order = ['ID' => 'DESC'], int $start = 0): array
     {
-        try {
-            return $this->callMethod('tasks.task.list', [
-                'filter' => $filter,
-                'select' => $select,
-                'order' => $order,
-                'start' => $start,
-            ], fn() => $this->serviceBuilder->getTasksScope()->list($filter, $select, $order, $start)->getTasks()) ?? [];
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return [];
-        }
+        return $this->callMethod('tasks.task.list', [
+            'filter' => $filter,
+            'select' => $select,
+            'order' => $order,
+            'start' => $start,
+        ], fn() => $this->serviceBuilder->getTasksScope()->list($filter, $select, $order, $start)->getTasks()) ?? [];
     }
 
     /**
@@ -47,14 +43,9 @@ class TaskClient extends BaseClient
      */
     public function get(int $id): ?array
     {
-        try {
-            return $this->callMethod('tasks.task.get', [
-                'id' => $id
-            ], fn() => $this->serviceBuilder->getTasksScope()->get($id)->task());
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return null;
-        }
+        return $this->callMethod('tasks.task.get', [
+            'id' => $id
+        ], fn() => $this->serviceBuilder->getTasksScope()->get($id)->task());
     }
 
     /**
@@ -66,14 +57,9 @@ class TaskClient extends BaseClient
      */
     public function add(array $fields): ?int
     {
-        try {
-            return $this->callMethod('tasks.task.add', [
-                'fields' => $fields
-            ], fn() => $this->serviceBuilder->getTasksScope()->add($fields)->getId());
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return null;
-        }
+        return $this->callMethod('tasks.task.add', [
+            'fields' => $fields
+        ], fn() => $this->serviceBuilder->getTasksScope()->add($fields)->getId());
     }
 
     /**
@@ -86,17 +72,12 @@ class TaskClient extends BaseClient
      */
     public function update(int $id, array $fields): bool
     {
-        try {
-            $result = $this->callMethod('tasks.task.update', [
-                'id' => $id,
-                'fields' => $fields
-            ], fn() => $this->serviceBuilder->getTasksScope()->update($id, $fields)->isSuccess());
-            
-            return $result === true;
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return false;
-        }
+        $result = $this->callMethod('tasks.task.update', [
+            'id' => $id,
+            'fields' => $fields
+        ], fn() => $this->serviceBuilder->getTasksScope()->update($id, $fields)->isSuccess());
+        
+        return $result === true;
     }
 
     /**
@@ -108,15 +89,10 @@ class TaskClient extends BaseClient
      */
     public function delete(int $id): bool
     {
-        try {
-            $result = $this->callMethod('tasks.task.delete', [
-                'id' => $id
-            ], fn() => $this->serviceBuilder->getTasksScope()->delete($id)->isSuccess());
-            
-            return $result === true;
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return false;
-        }
+        $result = $this->callMethod('tasks.task.delete', [
+            'id' => $id
+        ], fn() => $this->serviceBuilder->getTasksScope()->delete($id)->isSuccess());
+        
+        return $result === true;
     }
 }

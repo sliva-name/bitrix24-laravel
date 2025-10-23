@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Leko\Bitrix24\Clients;
 
+use Leko\Bitrix24\Contracts\UserClientInterface;
 use Throwable;
 
 /**
@@ -11,7 +12,7 @@ use Throwable;
  *
  * Предоставляет методы для работы с пользователями.
  */
-class UserClient extends BaseClient
+class UserClient extends BaseClient implements UserClientInterface
 {
     /**
      * Получить список пользователей.
@@ -22,14 +23,9 @@ class UserClient extends BaseClient
      */
     public function list(array $filter = []): array
     {
-        try {
-            return $this->callMethod('user.get', [
-                'filter' => $filter
-            ], fn() => $this->serviceBuilder->getMainScope()->call('user.get', ['filter' => $filter])['result']) ?? [];
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return [];
-        }
+        return $this->callMethod('user.get', [
+            'filter' => $filter
+        ], fn() => $this->serviceBuilder->getMainScope()->call('user.get', ['filter' => $filter])['result']) ?? [];
     }
 
     /**
@@ -40,14 +36,9 @@ class UserClient extends BaseClient
      */
     public function current(): ?array
     {
-        try {
-            return $this->callMethod('user.current', [], 
-                fn() => $this->serviceBuilder->getMainScope()->call('user.current')['result']
-            );
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return null;
-        }
+        return $this->callMethod('user.current', [], 
+            fn() => $this->serviceBuilder->getMainScope()->call('user.current')['result']
+        );
     }
 
     /**
@@ -59,16 +50,11 @@ class UserClient extends BaseClient
      */
     public function get(int $id): ?array
     {
-        try {
-            $result = $this->callMethod('user.get', [
-                'ID' => $id
-            ], fn() => $this->serviceBuilder->getMainScope()->call('user.get', ['ID' => $id])['result']);
-            
-            return is_array($result) ? ($result[0] ?? null) : null;
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return null;
-        }
+        $result = $this->callMethod('user.get', [
+            'ID' => $id
+        ], fn() => $this->serviceBuilder->getMainScope()->call('user.get', ['ID' => $id])['result']);
+        
+        return is_array($result) ? ($result[0] ?? null) : null;
     }
 
     /**
@@ -80,13 +66,8 @@ class UserClient extends BaseClient
      */
     public function search(string $query): array
     {
-        try {
-            return $this->callMethod('user.search', [
-                'FIND' => $query
-            ], fn() => $this->serviceBuilder->getMainScope()->call('user.search', ['FIND' => $query])['result']) ?? [];
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return [];
-        }
+        return $this->callMethod('user.search', [
+            'FIND' => $query
+        ], fn() => $this->serviceBuilder->getMainScope()->call('user.search', ['FIND' => $query])['result']) ?? [];
     }
 }

@@ -28,6 +28,13 @@ class Bitrix24Service implements Bitrix24ServiceInterface
     private ServiceBuilder|WebhookServiceBuilder|null $serviceBuilder = null;
     private string $connection = 'main';
     private ?int $userId = null;
+    
+    /**
+     * Мапинг кастомных классов клиентов.
+     *
+     * @var array<string, class-string>
+     */
+    private static array $customClients = [];
 
     /**
      * Создать новый экземпляр Bitrix24Service.
@@ -40,13 +47,39 @@ class Bitrix24Service implements Bitrix24ServiceInterface
     }
 
     /**
+     * Зарегистрировать кастомный клиент.
+     *
+     * @param string $name Название клиента
+     * @param class-string $clientClass Класс клиента
+     * @return void
+     */
+    public static function registerClient(string $name, string $clientClass): void
+    {
+        self::$customClients[$name] = $clientClass;
+    }
+
+    /**
+     * Создать экземпляр клиента по имени.
+     *
+     * @param string $name Название клиента
+     * @param class-string $defaultClass Класс клиента по умолчанию
+     * @return mixed
+     */
+    protected function makeClient(string $name, string $defaultClass): mixed
+    {
+        $clientClass = self::$customClients[$name] ?? $defaultClass;
+        
+        return new $clientClass($this->getServiceBuilder());
+    }
+
+    /**
      * Получить CRM клиент.
      *
      * @return CrmClient
      */
     public function crm(): CrmClient
     {
-        return new CrmClient($this->getServiceBuilder());
+        return $this->makeClient('crm', CrmClient::class);
     }
 
     /**
@@ -56,7 +89,7 @@ class Bitrix24Service implements Bitrix24ServiceInterface
      */
     public function leads(): LeadClient
     {
-        return new LeadClient($this->getServiceBuilder());
+        return $this->makeClient('leads', LeadClient::class);
     }
 
     /**
@@ -66,7 +99,7 @@ class Bitrix24Service implements Bitrix24ServiceInterface
      */
     public function contacts(): ContactClient
     {
-        return new ContactClient($this->getServiceBuilder());
+        return $this->makeClient('contacts', ContactClient::class);
     }
 
     /**
@@ -76,7 +109,7 @@ class Bitrix24Service implements Bitrix24ServiceInterface
      */
     public function companies(): CompanyClient
     {
-        return new CompanyClient($this->getServiceBuilder());
+        return $this->makeClient('companies', CompanyClient::class);
     }
 
     /**
@@ -86,7 +119,7 @@ class Bitrix24Service implements Bitrix24ServiceInterface
      */
     public function deals(): DealClient
     {
-        return new DealClient($this->getServiceBuilder());
+        return $this->makeClient('deals', DealClient::class);
     }
 
     /**
@@ -96,7 +129,7 @@ class Bitrix24Service implements Bitrix24ServiceInterface
      */
     public function tasks(): TaskClient
     {
-        return new TaskClient($this->getServiceBuilder());
+        return $this->makeClient('tasks', TaskClient::class);
     }
 
     /**
@@ -106,7 +139,7 @@ class Bitrix24Service implements Bitrix24ServiceInterface
      */
     public function users(): UserClient
     {
-        return new UserClient($this->getServiceBuilder());
+        return $this->makeClient('users', UserClient::class);
     }
 
     /**
@@ -116,7 +149,23 @@ class Bitrix24Service implements Bitrix24ServiceInterface
      */
     public function lists(): ListClient
     {
-        return new ListClient($this->getServiceBuilder());
+        return $this->makeClient('lists', ListClient::class);
+    }
+    
+    /**
+     * Получить кастомный клиент по имени.
+     *
+     * @param string $name Название клиента
+     * @return mixed
+     * @throws RuntimeException
+     */
+    public function client(string $name): mixed
+    {
+        if (!isset(self::$customClients[$name])) {
+            throw new RuntimeException("Клиент '{$name}' не зарегистрирован.");
+        }
+        
+        return $this->makeClient($name, self::$customClients[$name]);
     }
 
     /**

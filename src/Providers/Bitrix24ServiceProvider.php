@@ -7,7 +7,23 @@ namespace Leko\Bitrix24\Providers;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Leko\Bitrix24\Bitrix24Service;
+use Leko\Bitrix24\Clients\CompanyClient;
+use Leko\Bitrix24\Clients\ContactClient;
+use Leko\Bitrix24\Clients\CrmClient;
+use Leko\Bitrix24\Clients\DealClient;
+use Leko\Bitrix24\Clients\LeadClient;
+use Leko\Bitrix24\Clients\ListClient;
+use Leko\Bitrix24\Clients\TaskClient;
+use Leko\Bitrix24\Clients\UserClient;
 use Leko\Bitrix24\Contracts\Bitrix24ServiceInterface;
+use Leko\Bitrix24\Contracts\CompanyClientInterface;
+use Leko\Bitrix24\Contracts\ContactClientInterface;
+use Leko\Bitrix24\Contracts\CrmClientInterface;
+use Leko\Bitrix24\Contracts\DealClientInterface;
+use Leko\Bitrix24\Contracts\LeadClientInterface;
+use Leko\Bitrix24\Contracts\ListClientInterface;
+use Leko\Bitrix24\Contracts\TaskClientInterface;
+use Leko\Bitrix24\Contracts\UserClientInterface;
 use Leko\Bitrix24\Repositories\Bitrix24Token\Bitrix24TokenRepository;
 use Leko\Bitrix24\Repositories\Bitrix24Token\Bitrix24TokenRepositoryInterface;
 use Leko\Bitrix24\Repositories\Bitrix24Webhook\Bitrix24WebhookRepository;
@@ -45,6 +61,25 @@ class Bitrix24ServiceProvider extends ServiceProvider
         $this->app->singleton('bitrix24', function ($app) {
             return $app->make(Bitrix24ServiceInterface::class);
         });
+
+        $this->registerClientInterfaces();
+    }
+
+    /**
+     * Регистрация интерфейсов клиентов в контейнере.
+     *
+     * @return void
+     */
+    protected function registerClientInterfaces(): void
+    {
+        $this->app->bind(CrmClientInterface::class, fn($app) => $app->make('bitrix24')->crm());
+        $this->app->bind(LeadClientInterface::class, fn($app) => $app->make('bitrix24')->leads());
+        $this->app->bind(ContactClientInterface::class, fn($app) => $app->make('bitrix24')->contacts());
+        $this->app->bind(CompanyClientInterface::class, fn($app) => $app->make('bitrix24')->companies());
+        $this->app->bind(DealClientInterface::class, fn($app) => $app->make('bitrix24')->deals());
+        $this->app->bind(TaskClientInterface::class, fn($app) => $app->make('bitrix24')->tasks());
+        $this->app->bind(UserClientInterface::class, fn($app) => $app->make('bitrix24')->users());
+        $this->app->bind(ListClientInterface::class, fn($app) => $app->make('bitrix24')->lists());
     }
 
     /**

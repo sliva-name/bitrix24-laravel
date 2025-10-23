@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Leko\Bitrix24\Clients;
 
 use Bitrix24\SDK\Services\CRM\Lead\Result\LeadItemResult;
+use Leko\Bitrix24\Contracts\LeadClientInterface;
 use Throwable;
 
 /**
@@ -12,7 +13,7 @@ use Throwable;
  *
  * Предоставляет методы для работы с лиды CRM.
  */
-class LeadClient extends BaseClient
+class LeadClient extends BaseClient implements LeadClientInterface
 {
     /**
      * Получить список лиды.
@@ -26,17 +27,12 @@ class LeadClient extends BaseClient
      */
     public function list(array $filter = [], array $select = ['*'], array $order = ['ID' => 'DESC'], int $start = 0): array
     {
-        try {
-            return $this->callCrmMethod('lead', 'list', [
-                'filter' => $filter,
-                'select' => $select,
-                'order' => $order,
-                'start' => $start,
-            ], fn() => $this->serviceBuilder->getCRMScope()->lead()->list($order, $filter, $select, $start)->getLeads()) ?? [];
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return [];
-        }
+        return $this->callCrmMethod('lead', 'list', [
+            'filter' => $filter,
+            'select' => $select,
+            'order' => $order,
+            'start' => $start,
+        ], fn() => $this->serviceBuilder->getCRMScope()->lead()->list($order, $filter, $select, $start)->getLeads()) ?? [];
     }
 
     /**
@@ -48,14 +44,9 @@ class LeadClient extends BaseClient
      */
     public function get(int $id): array|LeadItemResult|null
     {
-        try {
-            return $this->callCrmMethod('lead', 'get', [
-                'id' => $id
-            ], fn() => $this->serviceBuilder->getCRMScope()->lead()->get($id)->lead());
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return null;
-        }
+        return $this->callCrmMethod('lead', 'get', [
+            'id' => $id
+        ], fn() => $this->serviceBuilder->getCRMScope()->lead()->get($id)->lead());
     }
 
     /**
@@ -67,14 +58,9 @@ class LeadClient extends BaseClient
      */
     public function add(array $fields): ?int
     {
-        try {
-            return $this->callCrmMethod('lead', 'add', [
-                'fields' => $fields
-            ], fn() => $this->serviceBuilder->getCRMScope()->lead()->add($fields)->getId());
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return null;
-        }
+        return $this->callCrmMethod('lead', 'add', [
+            'fields' => $fields
+        ], fn() => $this->serviceBuilder->getCRMScope()->lead()->add($fields)->getId());
     }
 
     /**
@@ -87,17 +73,12 @@ class LeadClient extends BaseClient
      */
     public function update(int $id, array $fields): bool
     {
-        try {
-            $result = $this->callCrmMethod('lead', 'update', [
-                'id' => $id,
-                'fields' => $fields
-            ], fn() => $this->serviceBuilder->getCRMScope()->lead()->update($id, $fields)->isSuccess());
-            
-            return $result === true;
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return false;
-        }
+        $result = $this->callCrmMethod('lead', 'update', [
+            'id' => $id,
+            'fields' => $fields
+        ], fn() => $this->serviceBuilder->getCRMScope()->lead()->update($id, $fields)->isSuccess());
+        
+        return $result === true;
     }
 
     /**
@@ -109,16 +90,11 @@ class LeadClient extends BaseClient
      */
     public function delete(int $id): bool
     {
-        try {
-            $result = $this->callCrmMethod('lead', 'delete', [
-                'id' => $id
-            ], fn() => $this->serviceBuilder->getCRMScope()->lead()->delete($id)->isSuccess());
-            
-            return $result === true;
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return false;
-        }
+        $result = $this->callCrmMethod('lead', 'delete', [
+            'id' => $id
+        ], fn() => $this->serviceBuilder->getCRMScope()->lead()->delete($id)->isSuccess());
+        
+        return $result === true;
     }
 
     /**
@@ -129,13 +105,8 @@ class LeadClient extends BaseClient
      */
     public function fields(): array
     {
-        try {
-            return $this->callCrmMethod('lead', 'fields', [], 
-                fn() => $this->serviceBuilder->getCRMScope()->lead()->fields()->getFieldsDescription()
-            ) ?? [];
-        } catch (Throwable $e) {
-            $this->handleException($e, __METHOD__);
-            return [];
-        }
+        return $this->callCrmMethod('lead', 'fields', [], 
+            fn() => $this->serviceBuilder->getCRMScope()->lead()->fields()->getFieldsDescription()
+        ) ?? [];
     }
 }
