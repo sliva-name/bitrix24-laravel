@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-08-13
+
+### Changed
+- Upgraded official SDK dependency to `bitrix24/b24phpsdk` ^1.10
+- Added Laravel 13 support (`illuminate/*` ^10|^11|^12|^13)
+- OAuth and webhook connections now use `ServiceBuilderFactory` instead of a custom webhook emulator
+- Token refresh now calls the Bitrix24 OAuth server and persists tokens renewed by the SDK
+- Task, user, CRM and list clients use current SDK scopes (`getTaskScope()`, `getUserScope()`, `core->call()`)
+- Batch requests are executed through the official SDK `batch` method
+- CRM, task and user clients return official SDK DTOs (`LeadItemResult`, `DealItemResult`, …) instead of `mixed`/arrays
+
+### Added
+- `Bitrix24::sdk()` / `Bitrix24Service::sdk()` to access the official `ServiceBuilder`
+- Connection `scope` and `oauth_server` config (`BITRIX24_SCOPE`, `BITRIX24_OAUTH_SERVER`)
+- Automatic persistence of `AuthTokenRenewedEvent` from the SDK
+
+### Fixed
+- ServiceBuilder was constructed with invalid arguments for the official SDK
+- Expired tokens could not be refreshed because the repository ignored them
+- `isExpiringSoon()` mutated the `expires_at` Carbon instance
+- Middleware imported a non-package facade namespace
+
+### Removed
+- Custom `WebhookServiceBuilder` (webhook auth uses the official SDK)
+
 ## [1.0.0] - 2025-10-21
 
 ### Added

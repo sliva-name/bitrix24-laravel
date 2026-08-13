@@ -14,14 +14,14 @@ class ApiCallEvent
      *
      * @param string $method Метод API
      * @param array $params Параметры запроса
-     * @param mixed $result Результат выполнения
+     * @param array|object|int|bool|string|null $result Результат выполнения
      * @param float $duration Длительность в секундах
      * @param bool $isWebhook Является ли webhook соединением
      */
     public function __construct(
         public readonly string $method,
         public readonly array $params,
-        public readonly mixed $result,
+        public readonly array|object|int|bool|string|null $result,
         public readonly float $duration,
         public readonly bool $isWebhook
     ) {

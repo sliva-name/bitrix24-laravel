@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Leko\Bitrix24\Contracts;
 
+use Bitrix24\SDK\Services\ServiceBuilder;
+use Leko\Bitrix24\Clients\BaseClient;
 use Leko\Bitrix24\Clients\CompanyClient;
 use Leko\Bitrix24\Clients\ContactClient;
 use Leko\Bitrix24\Clients\CrmClient;
@@ -75,6 +77,21 @@ interface Bitrix24ServiceInterface
      * @return ListClient
      */
     public function lists(): ListClient;
+
+    /**
+     * Получить зарегистрированный кастомный клиент.
+     *
+     * @param string $name Название клиента
+     * @return BaseClient
+     */
+    public function client(string $name): BaseClient;
+
+    /**
+     * Получить официальный ServiceBuilder SDK.
+     *
+     * @return ServiceBuilder
+     */
+    public function sdk(): ServiceBuilder;
 
     /**
      * Получить URL авторизации для OAuth.

@@ -32,6 +32,15 @@ interface Bitrix24TokenRepositoryInterface
     public function findValidToken(?int $userId, string $connection = 'main'): ?Bitrix24Token;
 
     /**
+     * Найти активный токен, включая истёкший.
+     *
+     * @param int|null $userId Идентификатор пользователя
+     * @param string $connection Название подключения
+     * @return Bitrix24Token|null
+     */
+    public function findActiveToken(?int $userId, string $connection = 'main'): ?Bitrix24Token;
+
+    /**
      * Найти токен по домену и подключению.
      *
      * @param string $domain Домен Bitrix24

@@ -22,7 +22,7 @@ class ContactClient extends BaseClient implements ContactClientInterface
      * @param array $select Список полей для выборки
      * @param array $order Сортировка результатов
      * @param int $start Смещение для пагинации
-     * @return array
+     * @return ContactItemResult[]
      * @throws Throwable
      */
     public function list(array $filter = [], array $select = ['*'], array $order = ['ID' => 'DESC'], int $start = 0): array
@@ -39,10 +39,10 @@ class ContactClient extends BaseClient implements ContactClientInterface
      * Получить контакт по ID.
      *
      * @param int $id ID записи
-     * @return array|ContactItemResult|null
+     * @return ContactItemResult
      * @throws Throwable
      */
-    public function get(int $id): array|ContactItemResult|null
+    public function get(int $id): ContactItemResult
     {
         return $this->callCrmMethod('contact', 'get', [
             'id' => $id
@@ -53,10 +53,10 @@ class ContactClient extends BaseClient implements ContactClientInterface
      * Добавить контакт.
      *
      * @param array $fields Поля новой записи
-     * @return int|null
+     * @return int
      * @throws Throwable
      */
-    public function add(array $fields): ?int
+    public function add(array $fields): int
     {
         return $this->callCrmMethod('contact', 'add', [
             'fields' => $fields

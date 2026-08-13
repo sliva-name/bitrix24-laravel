@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Leko\Bitrix24\Clients;
 
+use Bitrix24\SDK\Services\User\Result\UserItemResult;
 use Leko\Bitrix24\Contracts\UserClientInterface;
 use Throwable;
 
@@ -18,26 +19,26 @@ class UserClient extends BaseClient implements UserClientInterface
      * Получить список пользователей.
      *
      * @param array $filter Фильтры выборки
-     * @return array
+     * @return UserItemResult[]
      * @throws Throwable
      */
     public function list(array $filter = []): array
     {
         return $this->callMethod('user.get', [
             'filter' => $filter
-        ], fn() => $this->serviceBuilder->getMainScope()->call('user.get', ['filter' => $filter])['result']) ?? [];
+        ], fn() => $this->serviceBuilder->getUserScope()->user()->get(['ID' => 'ASC'], $filter)->getUsers()) ?? [];
     }
 
     /**
      * Получить текущего пользователя.
      *
-     * @return array|null
+     * @return UserItemResult
      * @throws Throwable
      */
-    public function current(): ?array
+    public function current(): UserItemResult
     {
-        return $this->callMethod('user.current', [], 
-            fn() => $this->serviceBuilder->getMainScope()->call('user.current')['result']
+        return $this->callMethod('user.current', [],
+            fn() => $this->serviceBuilder->getUserScope()->user()->current()->user()
         );
     }
 
@@ -45,29 +46,35 @@ class UserClient extends BaseClient implements UserClientInterface
      * Получить пользователя по ID.
      *
      * @param int $id ID пользователя
-     * @return array|null
+     * @return UserItemResult|null
      * @throws Throwable
      */
-    public function get(int $id): ?array
+    public function get(int $id): ?UserItemResult
     {
-        $result = $this->callMethod('user.get', [
+        $users = $this->callMethod('user.get', [
             'ID' => $id
-        ], fn() => $this->serviceBuilder->getMainScope()->call('user.get', ['ID' => $id])['result']);
-        
-        return is_array($result) ? ($result[0] ?? null) : null;
+        ], fn() => $this->serviceBuilder->getUserScope()->user()->get(['ID' => 'ASC'], ['ID' => $id])->getUsers());
+
+        if (!is_array($users) || $users === []) {
+            return null;
+        }
+
+        $user = $users[0];
+
+        return $user instanceof UserItemResult ? $user : null;
     }
 
     /**
      * Поиск пользователей.
      *
      * @param string $query Поисковый запрос
-     * @return array
+     * @return UserItemResult[]
      * @throws Throwable
      */
     public function search(string $query): array
     {
         return $this->callMethod('user.search', [
             'FIND' => $query
-        ], fn() => $this->serviceBuilder->getMainScope()->call('user.search', ['FIND' => $query])['result']) ?? [];
+        ], fn() => $this->serviceBuilder->getUserScope()->user()->search(['FIND' => $query])->getUsers()) ?? [];
     }
 }

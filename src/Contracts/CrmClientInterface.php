@@ -34,9 +34,9 @@ interface CrmClientInterface extends ClientInterface
      *
      * @param string $entityType Тип сущности
      * @param int $id ID записи
-     * @return array|null
+     * @return array
      */
-    public function get(string $entityType, int $id): ?array;
+    public function get(string $entityType, int $id): array;
 
     /**
      * Добавить новую сущность.
@@ -66,4 +66,3 @@ interface CrmClientInterface extends ClientInterface
      */
     public function delete(string $entityType, int $id): bool;
 }
-

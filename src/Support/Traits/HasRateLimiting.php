@@ -44,12 +44,13 @@ trait HasRateLimiting
     /**
      * Выполнить с rate limiting.
      *
+     * @template T
      * @param string $key Ключ для rate limit
-     * @param callable $callback Функция для выполнения
-     * @return mixed
+     * @param callable(): T $callback Функция для выполнения
+     * @return T
      * @throws RuntimeException
      */
-    protected function rateLimited(string $key, callable $callback): mixed
+    protected function rateLimited(string $key, callable $callback)
     {
         $key = Str::slug("bitrix24-rate-limit-{$key}");
 

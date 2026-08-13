@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Leko\Bitrix24\Contracts;
 
+use Bitrix24\SDK\Services\Task\Result\TaskItemResult;
+
 /**
  * Интерфейс клиента задач
  */
@@ -16,7 +18,7 @@ interface TaskClientInterface extends ClientInterface
      * @param array $select Список полей для выборки
      * @param array $order Сортировка результатов
      * @param int $start Смещение для пагинации
-     * @return array
+     * @return TaskItemResult[]
      */
     public function list(array $filter = [], array $select = ['*'], array $order = ['ID' => 'DESC'], int $start = 0): array;
 
@@ -24,17 +26,17 @@ interface TaskClientInterface extends ClientInterface
      * Получить задачу по ID.
      *
      * @param int $id ID задачи
-     * @return array|null
+     * @return TaskItemResult
      */
-    public function get(int $id): ?array;
+    public function get(int $id): TaskItemResult;
 
     /**
      * Добавить новую задачу.
      *
      * @param array $fields Поля новой задачи
-     * @return int|null
+     * @return int
      */
-    public function add(array $fields): ?int;
+    public function add(array $fields): int;
 
     /**
      * Обновить задачу.
@@ -53,4 +55,3 @@ interface TaskClientInterface extends ClientInterface
      */
     public function delete(int $id): bool;
 }
-

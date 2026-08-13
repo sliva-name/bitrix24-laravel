@@ -19,6 +19,7 @@ Thumbs.db
 
 # Test coverage
 /coverage/
+/.phpunit.cache/
 
 # Build artifacts
 /build/

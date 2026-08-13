@@ -42,6 +42,23 @@ class Bitrix24TokenRepository implements Bitrix24TokenRepositoryInterface
     }
 
     /**
+     * Найти активный токен, включая истёкший.
+     *
+     * @param int|null $userId Идентификатор пользователя
+     * @param string $connection Название подключения
+     * @return Bitrix24Token|null
+     */
+    public function findActiveToken(?int $userId, string $connection = 'main'): ?Bitrix24Token
+    {
+        return Bitrix24Token::query()
+            ->active()
+            ->forConnection($connection)
+            ->where('user_id', $userId)
+            ->latest('updated_at')
+            ->first();
+    }
+
+    /**
      * Найти токен по домену и подключению.
      *
      * @param string $domain Домен Bitrix24

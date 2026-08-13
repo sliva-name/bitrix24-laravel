@@ -212,12 +212,14 @@ abstract class BaseClient extends PackageBaseClient
 {
     /**
      * Кеширующий вызов API.
+     *
+     * @template T
+     * @param callable(): T $callback
+     * @return T
      */
-    protected function cachedCall(string $key, int $ttl, callable $callback): mixed
+    protected function cachedCall(string $key, int $ttl, callable $callback)
     {
-        return Cache::remember($key, $ttl, function () use ($callback) {
-            return $callback();
-        });
+        return Cache::remember($key, $ttl, $callback);
     }
     
     /**

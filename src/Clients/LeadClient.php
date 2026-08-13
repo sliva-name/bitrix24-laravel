@@ -22,7 +22,7 @@ class LeadClient extends BaseClient implements LeadClientInterface
      * @param array $select Список полей для выборки
      * @param array $order Сортировка результатов
      * @param int $start Смещение для пагинации
-     * @return array
+     * @return LeadItemResult[]
      * @throws Throwable
      */
     public function list(array $filter = [], array $select = ['*'], array $order = ['ID' => 'DESC'], int $start = 0): array
@@ -39,10 +39,10 @@ class LeadClient extends BaseClient implements LeadClientInterface
      * Получить Лид по ID.
      *
      * @param int $id ID записи
-     * @return array|LeadItemResult|null
+     * @return LeadItemResult
      * @throws Throwable
      */
-    public function get(int $id): array|LeadItemResult|null
+    public function get(int $id): LeadItemResult
     {
         return $this->callCrmMethod('lead', 'get', [
             'id' => $id
@@ -53,10 +53,10 @@ class LeadClient extends BaseClient implements LeadClientInterface
      * Добавить Лид.
      *
      * @param array $fields Поля новой записи
-     * @return int|null
+     * @return int
      * @throws Throwable
      */
-    public function add(array $fields): ?int
+    public function add(array $fields): int
     {
         return $this->callCrmMethod('lead', 'add', [
             'fields' => $fields

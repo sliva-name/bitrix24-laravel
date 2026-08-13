@@ -26,6 +26,8 @@ use Leko\Bitrix24\Clients\UserClient;
  * @method static TaskClient tasks()
  * @method static UserClient users()
  * @method static ListClient lists()
+ * @method static \Leko\Bitrix24\Clients\BaseClient client(string $name)
+ * @method static \Bitrix24\SDK\Services\ServiceBuilder sdk()
  * @method static string getAuthorizationUrl(array $scopes = [], ?string $state = null)
  * @method static array handleCallback(string $code)
  * @method static Bitrix24Service setConnection(string $connection)

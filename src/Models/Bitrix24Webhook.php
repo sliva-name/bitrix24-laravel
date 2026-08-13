@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Leko\Bitrix24\Models;
 
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -90,10 +91,10 @@ class Bitrix24Webhook extends Model
     /**
      * Scope для ожидающих вебхуков.
      *
-     * @param mixed $query Запрос
-     * @return mixed
+     * @param Builder $query Запрос
+     * @return Builder
      */
-    public function scopePending(mixed $query): mixed
+    public function scopePending(Builder $query): Builder
     {
         return $query->where('status', self::STATUS_PENDING);
     }
@@ -101,10 +102,10 @@ class Bitrix24Webhook extends Model
     /**
      * Scope для неудачных вебхуков.
      *
-     * @param mixed $query Запрос
-     * @return mixed
+     * @param Builder $query Запрос
+     * @return Builder
      */
-    public function scopeFailed(mixed $query): mixed
+    public function scopeFailed(Builder $query): Builder
     {
         return $query->where('status', self::STATUS_FAILED);
     }
@@ -112,10 +113,10 @@ class Bitrix24Webhook extends Model
     /**
      * Scope для завершенных вебхуков.
      *
-     * @param mixed $query Запрос
-     * @return mixed
+     * @param Builder $query Запрос
+     * @return Builder
      */
-    public function scopeCompleted(mixed $query): mixed
+    public function scopeCompleted(Builder $query): Builder
     {
         return $query->where('status', self::STATUS_COMPLETED);
     }
@@ -123,11 +124,11 @@ class Bitrix24Webhook extends Model
     /**
      * Scope по типу события.
      *
-     * @param mixed $query Запрос
+     * @param Builder $query Запрос
      * @param string $event Тип события
-     * @return mixed
+     * @return Builder
      */
-    public function scopeForEvent(mixed $query, string $event): mixed
+    public function scopeForEvent(Builder $query, string $event): Builder
     {
         return $query->where('event', $event);
     }
@@ -135,11 +136,11 @@ class Bitrix24Webhook extends Model
     /**
      * Scope по домену.
      *
-     * @param mixed $query Запрос
+     * @param Builder $query Запрос
      * @param string $domain Домен Bitrix24
-     * @return mixed
+     * @return Builder
      */
-    public function scopeForDomain(mixed $query, string $domain): mixed
+    public function scopeForDomain(Builder $query, string $domain): Builder
     {
         return $query->where('domain', $domain);
     }

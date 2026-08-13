@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Leko\Bitrix24\Clients;
 
-use Leko\Bitrix24\Contracts\ClientInterface;
-use Leko\Bitrix24\Support\Macroable;
-use Leko\Bitrix24\WebhookServiceBuilder;
 use Bitrix24\SDK\Services\ServiceBuilder;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
+use Leko\Bitrix24\Contracts\ClientInterface;
+use Leko\Bitrix24\Events\ApiCallEvent;
+use Leko\Bitrix24\Events\ApiCallFailedEvent;
+use Leko\Bitrix24\Support\Macroable;
 use Throwable;
 
 /**
@@ -19,14 +21,25 @@ use Throwable;
 abstract class BaseClient implements ClientInterface
 {
     use Macroable;
+
     /**
      * Создать новый экземпляр клиента.
      *
-     * @param ServiceBuilder|WebhookServiceBuilder $serviceBuilder Построитель сервисов Bitrix24
+     * @param ServiceBuilder $serviceBuilder Построитель сервисов Bitrix24
      */
     public function __construct(
-        protected readonly ServiceBuilder|WebhookServiceBuilder $serviceBuilder
+        protected readonly ServiceBuilder $serviceBuilder
     ) {
+    }
+
+    /**
+     * Получить официальный ServiceBuilder SDK.
+     *
+     * @return ServiceBuilder
+     */
+    public function getServiceBuilder(): ServiceBuilder
+    {
+        return $this->serviceBuilder;
     }
 
     /**
@@ -36,11 +49,11 @@ abstract class BaseClient implements ClientInterface
      */
     public function isWebhook(): bool
     {
-        return $this->serviceBuilder instanceof WebhookServiceBuilder;
+        return $this->serviceBuilder->core->getApiClient()->getCredentials()->isWebhookContext();
     }
 
     /**
-     * Вызвать метод API (универсально для OAuth и Webhook).
+     * Вызвать метод REST API через SDK.
      *
      * @param string $method Метод API
      * @param array $params Параметры запроса
@@ -48,44 +61,35 @@ abstract class BaseClient implements ClientInterface
      */
     protected function apiCall(string $method, array $params = []): array
     {
-        if ($this->isWebhook()) {
-            return $this->serviceBuilder->call($method, $params);
-        }
-
-        return [];
+        return $this->serviceBuilder->core
+            ->call($method, $params)
+            ->getResponseData()
+            ->getResult();
     }
 
     /**
-     * Универсальный вызов CRM метода с автоматическим определением режима.
+     * Универсальный вызов CRM метода.
      *
+     * @template T
      * @param string $entity Сущность CRM (lead, deal, contact, company)
      * @param string $action Действие (list, get, add, update, delete, fields)
      * @param array $params Параметры запроса
-     * @param callable|null $oauthCallback Callback для OAuth режима
-     * @return mixed
+     * @param (callable(): T)|null $sdkCallback Callback для типизированного SDK-метода
+     * @return T
      */
-    protected function callCrmMethod(string $entity, string $action, array $params = [], ?callable $oauthCallback = null): mixed
+    protected function callCrmMethod(string $entity, string $action, array $params = [], ?callable $sdkCallback = null)
     {
         $method = "crm.{$entity}.{$action}";
         $startTime = microtime(true);
-        
+
         try {
-            if ($this->isWebhook()) {
-                $response = $this->apiCall($method, $params);
-                $result = $response['result'] ?? ($action === 'list' ? [] : null);
-                $this->logApiCall($method, $params);
-                $this->dispatchApiCallEvent($method, $params, $result, microtime(true) - $startTime);
-                return $result;
-            }
+            $result = $sdkCallback ? $sdkCallback() : $this->apiCall($method, $params);
 
-            if ($oauthCallback) {
-                $result = $oauthCallback();
-                $this->dispatchApiCallEvent($method, $params, $result, microtime(true) - $startTime);
-                return $result;
-            }
+            $this->logApiCall($method, $params);
+            $this->dispatchApiCallEvent($method, $params, $result, microtime(true) - $startTime);
 
-            return $action === 'list' ? [] : null;
-        } catch (\Throwable $e) {
+            return $result;
+        } catch (Throwable $e) {
             $this->dispatchApiCallFailedEvent($method, $params, $e, microtime(true) - $startTime);
             throw $e;
         }
@@ -94,32 +98,24 @@ abstract class BaseClient implements ClientInterface
     /**
      * Универсальный вызов обычного метода API.
      *
+     * @template T
      * @param string $method Метод API
      * @param array $params Параметры запроса
-     * @param callable|null $oauthCallback Callback для OAuth режима
-     * @return mixed
+     * @param (callable(): T)|null $sdkCallback Callback для типизированного SDK-метода
+     * @return T
      */
-    protected function callMethod(string $method, array $params = [], ?callable $oauthCallback = null): mixed
+    protected function callMethod(string $method, array $params = [], ?callable $sdkCallback = null)
     {
         $startTime = microtime(true);
-        
+
         try {
-            if ($this->isWebhook()) {
-                $response = $this->apiCall($method, $params);
-                $result = $response['result'] ?? null;
-                $this->logApiCall($method, $params);
-                $this->dispatchApiCallEvent($method, $params, $result, microtime(true) - $startTime);
-                return $result;
-            }
+            $result = $sdkCallback ? $sdkCallback() : $this->apiCall($method, $params);
 
-            if ($oauthCallback) {
-                $result = $oauthCallback();
-                $this->dispatchApiCallEvent($method, $params, $result, microtime(true) - $startTime);
-                return $result;
-            }
+            $this->logApiCall($method, $params);
+            $this->dispatchApiCallEvent($method, $params, $result, microtime(true) - $startTime);
 
-            return null;
-        } catch (\Throwable $e) {
+            return $result;
+        } catch (Throwable $e) {
             $this->dispatchApiCallFailedEvent($method, $params, $e, microtime(true) - $startTime);
             throw $e;
         }
@@ -163,23 +159,25 @@ abstract class BaseClient implements ClientInterface
     /**
      * Безопасный вызов с обработкой исключений.
      *
-     * @param callable $callback Callback для выполнения
-     * @param mixed $fallback Значение по умолчанию при ошибке
+     * @template T
+     * @template TFallback
+     * @param callable(): T $callback Callback для выполнения
+     * @param TFallback $fallback Значение по умолчанию при ошибке
      * @param bool $throwOnError Выбросить исключение или вернуть fallback
-     * @return mixed
+     * @return T|TFallback
      * @throws Throwable
      */
-    protected function safeCall(callable $callback, mixed $fallback = null, bool $throwOnError = true): mixed
+    protected function safeCall(callable $callback, array|object|int|bool|string|null $fallback = null, bool $throwOnError = true)
     {
         try {
             return $callback();
         } catch (Throwable $e) {
             $this->logException($e, debug_backtrace()[1]['function'] ?? 'unknown');
-            
+
             if ($throwOnError) {
                 throw $e;
             }
-            
+
             return $fallback;
         }
     }
@@ -189,14 +187,14 @@ abstract class BaseClient implements ClientInterface
      *
      * @param array $params Массив параметров
      * @param string $key Ключ параметра
-     * @param mixed $value Значение параметра
+     * @param array|string|int|float|bool|null $value Значение параметра
      * @param callable|null $condition Условие для добавления параметра
      * @return array
      */
-    protected function addParamIf(array $params, string $key, mixed $value, ?callable $condition = null): array
+    protected function addParamIf(array $params, string $key, array|string|int|float|bool|null $value, ?callable $condition = null): array
     {
         $shouldAdd = $condition ? $condition($value) : !empty($value);
-        
+
         if ($shouldAdd) {
             $params[$key] = $value;
         }
@@ -208,7 +206,7 @@ abstract class BaseClient implements ClientInterface
      * Построить массив параметров с условным добавлением значений.
      *
      * @param array $base Базовые параметры
-     * @param array $conditional Условные параметры в формате ['key' => ['value' => mixed, 'condition' => callable|null]]
+     * @param array<string, array{value: array|string|int|float|bool|null, condition?: callable}|array|string|int|float|bool|null> $conditional Условные параметры
      * @return array
      */
     protected function buildParams(array $base, array $conditional = []): array
@@ -233,18 +231,14 @@ abstract class BaseClient implements ClientInterface
      *
      * @param string $method Метод API
      * @param array $params Параметры
-     * @param mixed $result Результат
+     * @param array|object|int|bool|string|null $result Результат SDK или REST
      * @param float $duration Длительность
      * @return void
      */
-    protected function dispatchApiCallEvent(string $method, array $params, mixed $result, float $duration): void
+    protected function dispatchApiCallEvent(string $method, array $params, array|object|int|bool|string|null $result, float $duration): void
     {
-        if (!class_exists('Illuminate\Support\Facades\Event')) {
-            return;
-        }
-
-        \Illuminate\Support\Facades\Event::dispatch(
-            new \Leko\Bitrix24\Events\ApiCallEvent($method, $params, $result, $duration, $this->isWebhook())
+        Event::dispatch(
+            new ApiCallEvent($method, $params, $result, $duration, $this->isWebhook())
         );
     }
 
@@ -259,12 +253,8 @@ abstract class BaseClient implements ClientInterface
      */
     protected function dispatchApiCallFailedEvent(string $method, array $params, Throwable $exception, float $duration): void
     {
-        if (!class_exists('Illuminate\Support\Facades\Event')) {
-            return;
-        }
-
-        \Illuminate\Support\Facades\Event::dispatch(
-            new \Leko\Bitrix24\Events\ApiCallFailedEvent($method, $params, $exception, $duration)
+        Event::dispatch(
+            new ApiCallFailedEvent($method, $params, $exception, $duration)
         );
     }
 }

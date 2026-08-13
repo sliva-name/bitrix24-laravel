@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Leko\Bitrix24\Contracts;
 
+use Bitrix24\SDK\Services\CRM\Deal\Result\DealItemResult;
+
 /**
  * Интерфейс клиента сделок
  */
@@ -16,7 +18,7 @@ interface DealClientInterface extends ClientInterface
      * @param array $select Список полей для выборки
      * @param array $order Сортировка результатов
      * @param int $start Смещение для пагинации
-     * @return array
+     * @return DealItemResult[]
      */
     public function list(array $filter = [], array $select = ['*'], array $order = ['ID' => 'DESC'], int $start = 0): array;
 
@@ -24,17 +26,17 @@ interface DealClientInterface extends ClientInterface
      * Получить сделку по ID.
      *
      * @param int $id ID записи
-     * @return mixed
+     * @return DealItemResult
      */
-    public function get(int $id): mixed;
+    public function get(int $id): DealItemResult;
 
     /**
      * Добавить сделку.
      *
      * @param array $fields Поля новой записи
-     * @return int|null
+     * @return int
      */
-    public function add(array $fields): ?int;
+    public function add(array $fields): int;
 
     /**
      * Обновить сделку.
@@ -60,4 +62,3 @@ interface DealClientInterface extends ClientInterface
      */
     public function fields(): array;
 }
-

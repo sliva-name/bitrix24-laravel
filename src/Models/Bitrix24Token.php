@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Leko\Bitrix24\Models;
 
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -65,7 +66,9 @@ class Bitrix24Token extends Model
      */
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(
+            config('auth.providers.users.model', 'App\\Models\\User')
+        );
     }
 
     /**
@@ -87,22 +90,22 @@ class Bitrix24Token extends Model
      *
      * @return bool
      */
-    public function isExpiringSoon(): bool
+    public function isExpiringSoon(int $minutes = 5): bool
     {
         if (!$this->expires_at) {
             return false;
         }
 
-        return $this->expires_at->subMinutes(5)->isPast();
+        return $this->expires_at->getTimestamp() <= Carbon::now()->copy()->addMinutes($minutes)->getTimestamp();
     }
 
     /**
      * Scope для активных токенов.
      *
-     * @param mixed $query Запрос
-     * @return mixed
+     * @param Builder $query Запрос
+     * @return Builder
      */
-    public function scopeActive($query): mixed
+    public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
     }
@@ -110,11 +113,11 @@ class Bitrix24Token extends Model
     /**
      * Scope для токенов конкретного подключения.
      *
-     * @param mixed $query Запрос
+     * @param Builder $query Запрос
      * @param string $connection Название подключения
-     * @return mixed
+     * @return Builder
      */
-    public function scopeForConnection($query, string $connection): mixed
+    public function scopeForConnection(Builder $query, string $connection): Builder
     {
         return $query->where('connection', $connection);
     }
@@ -122,11 +125,11 @@ class Bitrix24Token extends Model
     /**
      * Scope для токенов конкретного домена.
      *
-     * @param mixed $query Запрос
+     * @param Builder $query Запрос
      * @param string $domain Домен Bitrix24
-     * @return mixed
+     * @return Builder
      */
-    public function scopeForDomain($query, string $domain): mixed
+    public function scopeForDomain(Builder $query, string $domain): Builder
     {
         return $query->where('domain', $domain);
     }
@@ -134,10 +137,10 @@ class Bitrix24Token extends Model
     /**
      * Scope для валидных (активных и неистекших) токенов.
      *
-     * @param mixed $query Запрос
-     * @return mixed
+     * @param Builder $query Запрос
+     * @return Builder
      */
-    public function scopeValid($query): mixed
+    public function scopeValid(Builder $query): Builder
     {
         return $query->active()
             ->where(function ($q) {

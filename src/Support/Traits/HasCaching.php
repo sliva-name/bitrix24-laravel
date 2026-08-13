@@ -52,12 +52,13 @@ trait HasCaching
     /**
      * Выполнить с кешированием.
      *
+     * @template T
      * @param string $key Ключ кеша
-     * @param callable $callback Функция для выполнения
+     * @param callable(): T $callback Функция для выполнения
      * @param int|null $ttl TTL в секундах
-     * @return mixed
+     * @return T
      */
-    protected function cached(string $key, callable $callback, ?int $ttl = null): mixed
+    protected function cached(string $key, callable $callback, ?int $ttl = null)
     {
         $cacheKey = "{$this->cachePrefix}:{$key}";
         $ttl = $ttl ?? $this->cacheTtl;

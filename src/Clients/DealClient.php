@@ -22,7 +22,7 @@ class DealClient extends BaseClient implements DealClientInterface
      * @param array $select Список полей для выборки
      * @param array $order Сортировка результатов
      * @param int $start Смещение для пагинации
-     * @return array
+     * @return DealItemResult[]
      * @throws Throwable
      */
     public function list(array $filter = [], array $select = ['*'], array $order = ['ID' => 'DESC'], int $start = 0): array
@@ -39,10 +39,10 @@ class DealClient extends BaseClient implements DealClientInterface
      * Получить сделку по ID.
      *
      * @param int $id ID записи
-     * @return array|DealItemResult|null
+     * @return DealItemResult
      * @throws Throwable
      */
-    public function get(int $id): array|DealItemResult|null
+    public function get(int $id): DealItemResult
     {
         return $this->callCrmMethod('deal', 'get', [
             'id' => $id
@@ -53,10 +53,10 @@ class DealClient extends BaseClient implements DealClientInterface
      * Добавить сделку.
      *
      * @param array $fields Поля новой записи
-     * @return int|null
+     * @return int
      * @throws Throwable
      */
-    public function add(array $fields): ?int
+    public function add(array $fields): int
     {
         return $this->callCrmMethod('deal', 'add', [
             'fields' => $fields

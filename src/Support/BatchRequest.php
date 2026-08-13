@@ -14,7 +14,7 @@ class BatchRequest
     /**
      * Запросы для batch выполнения.
      *
-     * @var array
+     * @var array<string, array{method: string, params: array}>
      */
     protected array $commands = [];
 
@@ -62,7 +62,7 @@ class BatchRequest
     public function addMany(array $commands): self
     {
         foreach ($commands as $id => $command) {
-            $this->add($id, $command['method'], $command['params'] ?? []);
+            $this->add((string) $id, $command['method'], $command['params'] ?? []);
         }
 
         return $this;
@@ -75,44 +75,29 @@ class BatchRequest
      */
     public function execute(): array
     {
-        if (empty($this->commands)) {
+        if ($this->commands === []) {
             return [];
         }
 
         $batchCommands = [];
         foreach ($this->commands as $id => $command) {
-            $batchCommands[$id] = $command['method'] . '?' . http_build_query($command['params']);
+            $query = http_build_query($command['params']);
+            $batchCommands[$id] = $query === ''
+                ? $command['method']
+                : $command['method'] . '?' . $query;
         }
 
-        $result = $this->client->isWebhook()
-            ? $this->executeBatchWebhook($batchCommands)
-            : $this->executeBatchOAuth($batchCommands);
+        $result = $this->client->getServiceBuilder()->core
+            ->call('batch', [
+                'halt' => 0,
+                'cmd' => $batchCommands,
+            ])
+            ->getResponseData()
+            ->getResult();
 
         $this->commands = [];
 
-        return $result;
-    }
-
-    /**
-     * Выполнить batch через webhook.
-     *
-     * @param array $commands Команды
-     * @return array
-     */
-    protected function executeBatchWebhook(array $commands): array
-    {
-        return [];
-    }
-
-    /**
-     * Выполнить batch через OAuth.
-     *
-     * @param array $commands Команды
-     * @return array
-     */
-    protected function executeBatchOAuth(array $commands): array
-    {
-        return [];
+        return is_array($result) ? $result : [];
     }
 
     /**
@@ -143,7 +128,6 @@ class BatchRequest
      */
     public function isEmpty(): bool
     {
-        return empty($this->commands);
+        return $this->commands === [];
     }
 }
-

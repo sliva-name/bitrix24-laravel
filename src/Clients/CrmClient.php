@@ -24,10 +24,8 @@ class CrmClient extends BaseClient implements CrmClientInterface
     public function getFields(string $entityType): array
     {
         $method = "crm.{$entityType}.fields";
-        
-        return $this->callMethod($method, [], 
-            fn() => $this->serviceBuilder->getCRMScope()->call($method)
-        ) ?? [];
+
+        return $this->callMethod($method) ?? [];
     }
 
     /**
@@ -44,7 +42,7 @@ class CrmClient extends BaseClient implements CrmClientInterface
     public function getList(string $entityType, array $filter = [], array $select = [], array $order = [], int $start = 0): array
     {
         $method = "crm.{$entityType}.list";
-        
+
         $params = $this->buildParams(
             [],
             [
@@ -58,9 +56,7 @@ class CrmClient extends BaseClient implements CrmClientInterface
             ]
         );
 
-        return $this->callMethod($method, $params, 
-            fn() => $this->serviceBuilder->getCRMScope()->call($method, $params)
-        ) ?? [];
+        return $this->callMethod($method, $params) ?? [];
     }
 
     /**
@@ -68,16 +64,16 @@ class CrmClient extends BaseClient implements CrmClientInterface
      *
      * @param string $entityType Тип сущности
      * @param int $id ID записи
-     * @return array|null
+     * @return array
      * @throws Throwable
      */
-    public function get(string $entityType, int $id): ?array
+    public function get(string $entityType, int $id): array
     {
         $method = "crm.{$entityType}.get";
-        
-        return $this->callMethod($method, ['id' => $id], 
-            fn() => $this->serviceBuilder->getCRMScope()->call($method, ['id' => $id])
-        );
+
+        $result = $this->callMethod($method, ['id' => $id]);
+
+        return is_array($result) ? $result : [];
     }
 
     /**
@@ -91,10 +87,10 @@ class CrmClient extends BaseClient implements CrmClientInterface
     public function add(string $entityType, array $fields): ?int
     {
         $method = "crm.{$entityType}.add";
-        
-        return $this->callMethod($method, ['fields' => $fields], 
-            fn() => $this->serviceBuilder->getCRMScope()->call($method, ['fields' => $fields])['result'] ?? null
-        );
+
+        $result = $this->callMethod($method, ['fields' => $fields]);
+
+        return is_numeric($result) ? (int) $result : null;
     }
 
     /**
@@ -114,11 +110,9 @@ class CrmClient extends BaseClient implements CrmClientInterface
             'fields' => $fields,
         ];
 
-        $result = $this->callMethod($method, $params, 
-            fn() => $this->serviceBuilder->getCRMScope()->call($method, $params)
-        );
-        
-        return isset($result['result']) || is_array($result);
+        $result = $this->callMethod($method, $params);
+
+        return $result === true || $result === 1 || $result === '1';
     }
 
     /**
@@ -132,11 +126,9 @@ class CrmClient extends BaseClient implements CrmClientInterface
     public function delete(string $entityType, int $id): bool
     {
         $method = "crm.{$entityType}.delete";
-        
-        $result = $this->callMethod($method, ['id' => $id], 
-            fn() => $this->serviceBuilder->getCRMScope()->call($method, ['id' => $id])
-        );
-        
-        return isset($result['result']) || is_array($result);
+
+        $result = $this->callMethod($method, ['id' => $id]);
+
+        return $result === true || $result === 1 || $result === '1';
     }
 }

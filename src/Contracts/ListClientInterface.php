@@ -81,4 +81,3 @@ interface ListClientInterface extends ClientInterface
      */
     public function getAllLists(): array;
 }
-

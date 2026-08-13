@@ -3,7 +3,7 @@
 [![Latest Version](https://img.shields.io/packagist/v/sliva-name/bitrix24-laravel.svg)](https://packagist.org/packages/sliva-name/bitrix24-laravel)
 [![License](https://img.shields.io/packagist/l/sliva-name/bitrix24-laravel.svg)](LICENSE)
 [![PHP Version](https://img.shields.io/packagist/php-v/sliva-name/bitrix24-laravel.svg)](https://packagist.org/packages/sliva-name/bitrix24-laravel)
-[![Laravel Version](https://img.shields.io/badge/Laravel-10.x%20%7C%2011.x%20%7C%2012.x-red.svg)](https://laravel.com)
+[![Laravel Version](https://img.shields.io/badge/Laravel-10.x%20%7C%2011.x%20%7C%2012.x%20%7C%2013.x-red.svg)](https://laravel.com)
 [![Downloads](https://img.shields.io/packagist/dt/sliva-name/bitrix24-laravel.svg)](https://packagist.org/packages/sliva-name/bitrix24-laravel)
 
 **Полнофункциональный, гибкий и расширяемый пакет для интеграции Laravel с Bitrix24 CRM.**
@@ -79,7 +79,8 @@
 ## 📋 Требования
 
 - **PHP:** 8.2 или выше
-- **Laravel:** 10.x, 11.x или 12.x
+- **Laravel:** 10.x, 11.x, 12.x или 13.x
+- **Bitrix24 PHP SDK:** `bitrix24/b24phpsdk` ^1.10
 - **База данных:** PostgreSQL (рекомендуется), MySQL, SQLite
 - **Extensions:** `ext-json`, `ext-curl`
 
@@ -120,6 +121,8 @@ BITRIX24_DOMAIN=your-domain.bitrix24.ru
 BITRIX24_CLIENT_ID=local.xxxxxxxx.yyyyyyyy
 BITRIX24_CLIENT_SECRET=your_client_secret
 BITRIX24_REDIRECT_URI=${APP_URL}/api/bitrix24/auth/callback
+BITRIX24_SCOPE=crm,task,user,lists
+BITRIX24_OAUTH_SERVER=https://oauth.bitrix.info/
 ```
 
 #### Для Webhook:
@@ -153,6 +156,9 @@ Route::get('/bitrix24/callback', function (Request $request) {
 
 // 3. Использовать API
 $leads = Bitrix24::leads()->list();
+
+// Прямой доступ к официальному SDK при необходимости
+$currentUser = Bitrix24::sdk()->getUserScope()->user()->current()->user();
 ```
 
 ### Работа с лидами
@@ -276,7 +282,7 @@ $leads = Bitrix24::leads()->list(
     start: 0
 );
 
-// Получить по ID
+// Получить по ID — LeadItemResult, поля через $lead->ID, $lead->TITLE
 $lead = Bitrix24::leads()->get(123);
 
 // CRUD операции
@@ -634,12 +640,24 @@ Bitrix24::client(string $name) // Кастомный клиент
 Все CRM клиенты (Leads, Deals, Contacts, Companies) имеют одинаковый интерфейс:
 
 ```php
-list(array $filter = [], array $select = ['*'], array $order = ['ID' => 'DESC'], int $start = 0): array
-get(int $id): mixed
-add(array $fields): ?int
+// LeadClient / DealClient / ContactClient / CompanyClient — DTO официального SDK
+list(...): LeadItemResult[]|DealItemResult[]|ContactItemResult[]|CompanyItemResult[]
+get(int $id): LeadItemResult|DealItemResult|ContactItemResult|CompanyItemResult
+add(array $fields): int
 update(int $id, array $fields): bool
 delete(int $id): bool
 fields(): array
+
+// TaskClient
+list(...): TaskItemResult[]
+get(int $id): TaskItemResult
+add(array $fields): int
+
+// UserClient
+list(...): UserItemResult[]
+current(): UserItemResult
+get(int $id): ?UserItemResult
+search(string $query): UserItemResult[]
 ```
 
 ---
@@ -655,7 +673,7 @@ fields(): array
 ```php
 public readonly string $method;      // Метод API
 public readonly array $params;       // Параметры запроса
-public readonly mixed $result;       // Результат
+public readonly array|object|int|bool|string|null $result; // DTO SDK или REST-результат
 public readonly float $duration;     // Длительность в секундах
 public readonly bool $isWebhook;     // Webhook или OAuth
 ```

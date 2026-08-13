@@ -4,6 +4,14 @@ declare(strict_types=1);
 
 namespace Leko\Bitrix24;
 
+use Bitrix24\SDK\Core\Credentials\DefaultOAuthServerUrl;
+use Bitrix24\SDK\Events\AuthTokenRenewedEvent;
+use Bitrix24\SDK\Services\ServiceBuilder;
+use Bitrix24\SDK\Services\ServiceBuilderFactory;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Leko\Bitrix24\Clients\BaseClient;
 use Leko\Bitrix24\Clients\CompanyClient;
 use Leko\Bitrix24\Clients\ContactClient;
 use Leko\Bitrix24\Clients\CrmClient;
@@ -13,10 +21,10 @@ use Leko\Bitrix24\Clients\ListClient;
 use Leko\Bitrix24\Clients\TaskClient;
 use Leko\Bitrix24\Clients\UserClient;
 use Leko\Bitrix24\Contracts\Bitrix24ServiceInterface;
-use Bitrix24\SDK\Services\ServiceBuilder;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Str;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use RuntimeException;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 
 /**
  * Главный сервис Bitrix24
@@ -25,10 +33,10 @@ use RuntimeException;
  */
 class Bitrix24Service implements Bitrix24ServiceInterface
 {
-    private ServiceBuilder|WebhookServiceBuilder|null $serviceBuilder = null;
+    private ?ServiceBuilder $serviceBuilder = null;
     private string $connection = 'main';
     private ?int $userId = null;
-    
+
     /**
      * Мапинг кастомных классов клиентов.
      *
@@ -44,6 +52,7 @@ class Bitrix24Service implements Bitrix24ServiceInterface
     public function __construct(
         private readonly TokenManager $tokenManager
     ) {
+        $this->connection = (string) config('bitrix24.default', 'main');
     }
 
     /**
@@ -61,15 +70,16 @@ class Bitrix24Service implements Bitrix24ServiceInterface
     /**
      * Создать экземпляр клиента по имени.
      *
+     * @template TClient of BaseClient
      * @param string $name Название клиента
-     * @param class-string $defaultClass Класс клиента по умолчанию
-     * @return mixed
+     * @param class-string<TClient> $defaultClass Класс клиента по умолчанию
+     * @return TClient
      */
-    protected function makeClient(string $name, string $defaultClass): mixed
+    protected function makeClient(string $name, string $defaultClass): BaseClient
     {
         $clientClass = self::$customClients[$name] ?? $defaultClass;
-        
-        return new $clientClass($this->getServiceBuilder());
+
+        return new $clientClass($this->sdk());
     }
 
     /**
@@ -151,21 +161,31 @@ class Bitrix24Service implements Bitrix24ServiceInterface
     {
         return $this->makeClient('lists', ListClient::class);
     }
-    
+
     /**
      * Получить кастомный клиент по имени.
      *
      * @param string $name Название клиента
-     * @return mixed
+     * @return BaseClient
      * @throws RuntimeException
      */
-    public function client(string $name): mixed
+    public function client(string $name): BaseClient
     {
         if (!isset(self::$customClients[$name])) {
             throw new RuntimeException("Клиент '{$name}' не зарегистрирован.");
         }
-        
+
         return $this->makeClient($name, self::$customClients[$name]);
+    }
+
+    /**
+     * Получить официальный ServiceBuilder SDK.
+     *
+     * @return ServiceBuilder
+     */
+    public function sdk(): ServiceBuilder
+    {
+        return $this->getServiceBuilder();
     }
 
     /**
@@ -187,11 +207,15 @@ class Bitrix24Service implements Bitrix24ServiceInterface
             'state' => $state,
         ];
 
-        if (!empty($scopes)) {
+        if ($scopes === [] && !empty($config['scope'])) {
+            $scopes = array_filter(array_map('trim', explode(',', (string) $config['scope'])));
+        }
+
+        if ($scopes !== []) {
             $params['scope'] = implode(',', $scopes);
         }
 
-        return 'https://' . $config['domain'] . '/oauth/authorize/?' . http_build_query($params);
+        return 'https://' . $this->normalizeDomain((string) $config['domain']) . '/oauth/authorize/?' . http_build_query($params);
     }
 
     /**
@@ -252,34 +276,45 @@ class Bitrix24Service implements Bitrix24ServiceInterface
     public function hasValidToken(?int $userId = null): bool
     {
         $userId = $userId ?? $this->userId;
-        $token = $this->tokenManager->getToken($userId, $this->connection);
 
-        return $token !== null && !$token->isExpired();
+        return $this->tokenManager->getToken($userId, $this->connection) !== null;
     }
 
     /**
      * Получить или создать экземпляр service builder.
      *
-     * @return ServiceBuilder|WebhookServiceBuilder
+     * @return ServiceBuilder
      */
-    private function getServiceBuilder(): ServiceBuilder|WebhookServiceBuilder
+    private function getServiceBuilder(): ServiceBuilder
     {
-        if ($this->serviceBuilder === null) {
-            $config = config("bitrix24.connections.{$this->connection}");
-            $authType = $config['type'] ?? 'oauth';
-
-            if ($authType === 'webhook' && !empty($config['webhook_url'])) {
-                $this->serviceBuilder = new WebhookServiceBuilder($config['webhook_url']);
-            } else {
-                $credentials = $this->tokenManager->getCredentials($this->userId, $this->connection);
-
-                if (!$credentials) {
-                    throw new RuntimeException('Не найдены валидные учетные данные Bitrix24. Пожалуйста, авторизуйтесь.');
-                }
-
-                $this->serviceBuilder = new ServiceBuilder($credentials, null);
-            }
+        if ($this->serviceBuilder instanceof ServiceBuilder) {
+            return $this->serviceBuilder;
         }
+
+        $config = config("bitrix24.connections.{$this->connection}", []);
+        $authType = $config['type'] ?? 'oauth';
+        $factory = new ServiceBuilderFactory($this->createEventDispatcher(), $this->createLogger());
+
+        if ($authType === 'webhook' && !empty($config['webhook_url'])) {
+            $this->serviceBuilder = $factory->initFromWebhook($config['webhook_url']);
+
+            return $this->serviceBuilder;
+        }
+
+        $token = $this->tokenManager->getToken($this->userId, $this->connection);
+
+        if (!$token) {
+            throw new RuntimeException('Не найдены валидные учетные данные Bitrix24. Пожалуйста, авторизуйтесь.');
+        }
+
+        $oauthServer = $config['oauth_server'] ?? DefaultOAuthServerUrl::default();
+
+        $this->serviceBuilder = $factory->init(
+            $this->tokenManager->getApplicationProfile($this->connection),
+            $this->tokenManager->toAuthToken($token),
+            $this->normalizeDomain((string) ($token->domain ?: $config['domain'] ?? '')),
+            rtrim((string) $oauthServer, '/') . '/'
+        );
 
         return $this->serviceBuilder;
     }
@@ -293,15 +328,18 @@ class Bitrix24Service implements Bitrix24ServiceInterface
      */
     private function exchangeCodeForToken(string $code, array $config): array
     {
-        $url = 'https://' . $config['domain'] . '/oauth/token/';
+        $oauthServer = rtrim((string) ($config['oauth_server'] ?? DefaultOAuthServerUrl::default()), '/');
 
-        $response = Http::asForm()->post($url, [
-            'grant_type' => 'authorization_code',
-            'client_id' => $config['client_id'],
-            'client_secret' => $config['client_secret'],
-            'code' => $code,
-            'redirect_uri' => $config['redirect_uri'],
-        ]);
+        $response = Http::asForm()->timeout(config('bitrix24.api.timeout', 30))->post(
+            $oauthServer . '/oauth/token/',
+            [
+                'grant_type' => 'authorization_code',
+                'client_id' => $config['client_id'],
+                'client_secret' => $config['client_secret'],
+                'code' => $code,
+                'redirect_uri' => $config['redirect_uri'],
+            ]
+        );
 
         if ($response->failed()) {
             throw new RuntimeException('Не удалось обменять код на токен: ' . $response->body());
@@ -309,13 +347,73 @@ class Bitrix24Service implements Bitrix24ServiceInterface
 
         $data = $response->json();
 
+        if (!isset($data['access_token'], $data['refresh_token'])) {
+            throw new RuntimeException('Ответ Bitrix24 не содержит токены: ' . $response->body());
+        }
+
         return [
-            'domain' => $config['domain'],
+            'domain' => $this->normalizeDomain((string) ($data['domain'] ?? $config['domain'] ?? '')),
             'access_token' => $data['access_token'],
             'refresh_token' => $data['refresh_token'],
             'expires_in' => $data['expires_in'] ?? 3600,
-            'scope' => explode(',', $data['scope'] ?? ''),
+            'expires' => $data['expires'] ?? null,
+            'scope' => explode(',', $data['scope'] ?? (string) ($config['scope'] ?? '')),
+            'metadata' => [
+                'member_id' => $data['member_id'] ?? null,
+                'client_endpoint' => $data['client_endpoint'] ?? null,
+                'server_endpoint' => $data['server_endpoint'] ?? null,
+            ],
         ];
     }
-}
 
+    /**
+     * Создать диспетчер событий SDK с сохранением обновлённых токенов.
+     *
+     * @return EventDispatcher
+     */
+    private function createEventDispatcher(): EventDispatcher
+    {
+        $dispatcher = new EventDispatcher();
+
+        $dispatcher->addListener(
+            AuthTokenRenewedEvent::class,
+            function (AuthTokenRenewedEvent $event): void {
+                $this->tokenManager->persistRenewedToken(
+                    $event->getRenewedToken(),
+                    $this->userId,
+                    $this->connection
+                );
+            }
+        );
+
+        return $dispatcher;
+    }
+
+    /**
+     * Создать PSR-3 логгер для SDK.
+     *
+     * @return LoggerInterface
+     */
+    private function createLogger(): LoggerInterface
+    {
+        if (!config('bitrix24.logging.enabled')) {
+            return new NullLogger();
+        }
+
+        return Log::channel(config('bitrix24.logging.channel', 'daily'));
+    }
+
+    /**
+     * Нормализовать домен Bitrix24 без схемы.
+     *
+     * @param string $domain Домен
+     * @return string
+     */
+    private function normalizeDomain(string $domain): string
+    {
+        $domain = trim($domain);
+        $domain = preg_replace('#^https?://#i', '', $domain) ?? $domain;
+
+        return rtrim($domain, '/');
+    }
+}

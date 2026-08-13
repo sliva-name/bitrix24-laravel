@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Leko\Bitrix24\Contracts;
 
+use Bitrix24\SDK\Services\User\Result\UserItemResult;
+
 /**
  * Интерфейс клиента пользователей
  */
@@ -13,31 +15,30 @@ interface UserClientInterface extends ClientInterface
      * Получить список пользователей.
      *
      * @param array $filter Фильтры выборки
-     * @return array
+     * @return UserItemResult[]
      */
     public function list(array $filter = []): array;
 
     /**
      * Получить текущего пользователя.
      *
-     * @return array|null
+     * @return UserItemResult
      */
-    public function current(): ?array;
+    public function current(): UserItemResult;
 
     /**
      * Получить пользователя по ID.
      *
      * @param int $id ID пользователя
-     * @return array|null
+     * @return UserItemResult|null
      */
-    public function get(int $id): ?array;
+    public function get(int $id): ?UserItemResult;
 
     /**
      * Поиск пользователей.
      *
      * @param string $query Поисковый запрос
-     * @return array
+     * @return UserItemResult[]
      */
     public function search(string $query): array;
 }
-

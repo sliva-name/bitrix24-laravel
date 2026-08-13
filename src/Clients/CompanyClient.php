@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Leko\Bitrix24\Clients;
 
+use Bitrix24\SDK\Services\CRM\Company\Result\CompanyItemResult;
 use Leko\Bitrix24\Contracts\CompanyClientInterface;
 use Throwable;
 
@@ -21,7 +22,7 @@ class CompanyClient extends BaseClient implements CompanyClientInterface
      * @param array $select Список полей для выборки
      * @param array $order Сортировка результатов
      * @param int $start Смещение для пагинации
-     * @return array
+     * @return CompanyItemResult[]
      * @throws Throwable
      */
     public function list(array $filter = [], array $select = ['*'], array $order = ['ID' => 'DESC'], int $start = 0): array
@@ -38,10 +39,10 @@ class CompanyClient extends BaseClient implements CompanyClientInterface
      * Получить компанию по ID.
      *
      * @param int $id ID записи
-     * @return array|null
+     * @return CompanyItemResult
      * @throws Throwable
      */
-    public function get(int $id): ?array
+    public function get(int $id): CompanyItemResult
     {
         return $this->callCrmMethod('company', 'get', [
             'id' => $id
@@ -52,10 +53,10 @@ class CompanyClient extends BaseClient implements CompanyClientInterface
      * Добавить компанию.
      *
      * @param array $fields Поля новой записи
-     * @return int|null
+     * @return int
      * @throws Throwable
      */
-    public function add(array $fields): ?int
+    public function add(array $fields): int
     {
         return $this->callCrmMethod('company', 'add', [
             'fields' => $fields

@@ -46,9 +46,7 @@ class ListClient extends BaseClient implements ListClientInterface
             ]
         );
 
-        return $this->callMethod('lists.element.get', $params, 
-            fn() => $this->serviceBuilder->getCRMScope()->lists()->getList($listId, $order, $filter, $select, $start)->getListItems()
-        ) ?? [];
+        return $this->callMethod('lists.element.get', $params) ?? [];
     }
 
     /**
@@ -61,11 +59,13 @@ class ListClient extends BaseClient implements ListClientInterface
      */
     public function get(int $listId, int $elementId): ?array
     {
-        return $this->callMethod('lists.element.get', [
+        $result = $this->callMethod('lists.element.get', [
             'IBLOCK_TYPE_ID' => 'lists',
             'IBLOCK_ID' => $listId,
             'ELEMENT_ID' => $elementId,
-        ], fn() => $this->serviceBuilder->getCRMScope()->lists()->getListElement($listId, $elementId)->getListElement());
+        ]);
+
+        return is_array($result) ? ($result[0] ?? null) : null;
     }
 
     /**
@@ -78,11 +78,13 @@ class ListClient extends BaseClient implements ListClientInterface
      */
     public function add(int $listId, array $fields): ?int
     {
-        return $this->callMethod('lists.element.add', [
+        $result = $this->callMethod('lists.element.add', [
             'IBLOCK_TYPE_ID' => 'lists',
             'IBLOCK_ID' => $listId,
             'fields' => $fields
-        ], fn() => $this->serviceBuilder->getCRMScope()->lists()->addListElement($listId, $fields)->getId());
+        ]);
+
+        return is_numeric($result) ? (int) $result : null;
     }
 
     /**
@@ -101,9 +103,9 @@ class ListClient extends BaseClient implements ListClientInterface
             'IBLOCK_ID' => $listId,
             'ELEMENT_ID' => $elementId,
             'fields' => $fields
-        ], fn() => $this->serviceBuilder->getCRMScope()->lists()->updateListElement($listId, $elementId, $fields)->isSuccess());
+        ]);
 
-        return $result === true;
+        return $result === true || $result === 1 || $result === '1';
     }
 
     /**
@@ -120,9 +122,9 @@ class ListClient extends BaseClient implements ListClientInterface
             'IBLOCK_TYPE_ID' => 'lists',
             'IBLOCK_ID' => $listId,
             'ELEMENT_ID' => $elementId
-        ], fn() => $this->serviceBuilder->getCRMScope()->lists()->deleteListElement($listId, $elementId)->isSuccess());
+        ]);
 
-        return $result === true;
+        return $result === true || $result === 1 || $result === '1';
     }
 
     /**
@@ -137,7 +139,7 @@ class ListClient extends BaseClient implements ListClientInterface
         return $this->callMethod('lists.field.get', [
             'IBLOCK_TYPE_ID' => 'lists',
             'IBLOCK_ID' => $listId
-        ], fn() => $this->serviceBuilder->getCRMScope()->lists()->getListFields($listId)->getFieldsDescription()) ?? [];
+        ]) ?? [];
     }
 
     /**
@@ -149,10 +151,12 @@ class ListClient extends BaseClient implements ListClientInterface
      */
     public function getListInfo(int $listId): ?array
     {
-        return $this->callMethod('lists.get', [
+        $result = $this->callMethod('lists.get', [
             'IBLOCK_TYPE_ID' => 'lists',
             'IBLOCK_ID' => $listId
-        ], fn() => $this->serviceBuilder->getCRMScope()->lists()->getList($listId)->getList());
+        ]);
+
+        return is_array($result) ? ($result[0] ?? $result) : null;
     }
 
     /**
@@ -165,6 +169,6 @@ class ListClient extends BaseClient implements ListClientInterface
     {
         return $this->callMethod('lists.get', [
             'IBLOCK_TYPE_ID' => 'lists'
-        ], fn() => $this->serviceBuilder->getCRMScope()->lists()->getLists()->getLists()) ?? [];
+        ]) ?? [];
     }
 }

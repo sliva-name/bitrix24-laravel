@@ -4,13 +4,19 @@ declare(strict_types=1);
 
 namespace Leko\Bitrix24;
 
-use Leko\Bitrix24\Models\Bitrix24Token;
-use Leko\Bitrix24\Repositories\Bitrix24Token\Bitrix24TokenRepositoryInterface;
-use Bitrix24\SDK\Core\Credentials\AccessToken;
-use Bitrix24\SDK\Core\Credentials\Credentials;
+use Bitrix24\SDK\Core\Credentials\ApplicationProfile;
+use Bitrix24\SDK\Core\Credentials\AuthToken;
+use Bitrix24\SDK\Core\Credentials\DefaultOAuthServerUrl;
+use Bitrix24\SDK\Core\Credentials\Scope;
+use Bitrix24\SDK\Core\Response\DTO\RenewedAuthToken;
 use Carbon\Carbon;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
+use Illuminate\Support\Facades\Http;
+use Leko\Bitrix24\Models\Bitrix24Token;
+use Leko\Bitrix24\Repositories\Bitrix24Token\Bitrix24TokenRepositoryInterface;
 use Psr\SimpleCache\InvalidArgumentException;
+use RuntimeException;
+use Throwable;
 
 /**
  * Сервис управления токенами
@@ -27,7 +33,7 @@ readonly class TokenManager
      */
     public function __construct(
         private Bitrix24TokenRepositoryInterface $tokenRepository,
-        private CacheRepository                  $cache
+        private CacheRepository $cache
     ) {
     }
 
@@ -45,17 +51,21 @@ readonly class TokenManager
 
         $token = $this->cache->get($cacheKey);
 
-        if ($token instanceof Bitrix24Token && !$token->isExpired()) {
+        if ($token instanceof Bitrix24Token && !$token->isExpired() && !$token->isExpiringSoon()) {
             return $token;
         }
 
-        $token = $this->tokenRepository->findValidToken($userId, $connection);
+        $token = $this->tokenRepository->findActiveToken($userId, $connection);
+
+        if ($token && ($token->isExpired() || $token->isExpiringSoon())) {
+            try {
+                $token = $this->refreshToken($token);
+            } catch (Throwable) {
+                return null;
+            }
+        }
 
         if ($token) {
-            if ($token->isExpiringSoon()) {
-                $token = $this->refreshToken($token);
-            }
-
             $this->cacheToken($token);
         }
 
@@ -72,9 +82,7 @@ readonly class TokenManager
      */
     public function storeToken(array $tokenData, ?int $userId = null, string $connection = 'main'): Bitrix24Token
     {
-        $expiresAt = isset($tokenData['expires_in'])
-            ? Carbon::now()->addSeconds($tokenData['expires_in'])
-            : null;
+        $expiresAt = $this->resolveExpiresAt($tokenData);
 
         $data = [
             'connection' => $connection,
@@ -97,6 +105,38 @@ readonly class TokenManager
     }
 
     /**
+     * Сохранить токен, обновлённый SDK.
+     *
+     * @param RenewedAuthToken $renewed Обновлённый токен SDK
+     * @param int|null $userId ID пользователя
+     * @param string $connection Название подключения
+     * @return Bitrix24Token
+     */
+    public function persistRenewedToken(RenewedAuthToken $renewed, ?int $userId = null, string $connection = 'main'): Bitrix24Token
+    {
+        $authToken = $renewed->authToken;
+        $refreshToken = $authToken->refreshToken
+            ?? $this->tokenRepository->findActiveToken($userId, $connection)?->refresh_token;
+
+        if ($refreshToken === null || $refreshToken === '') {
+            throw new RuntimeException('Не удалось сохранить обновлённый токен: отсутствует refresh_token.');
+        }
+
+        return $this->storeToken([
+            'domain' => $renewed->domain,
+            'access_token' => $authToken->accessToken,
+            'refresh_token' => $refreshToken,
+            'expires_in' => $authToken->expiresIn ?? 3600,
+            'expires' => $authToken->expires,
+            'metadata' => [
+                'member_id' => $renewed->memberId,
+                'client_endpoint' => $renewed->clientEndpoint,
+                'server_endpoint' => $renewed->serverEndpoint,
+            ],
+        ], $userId, $connection);
+    }
+
+    /**
      * Обновить access token.
      *
      * @param Bitrix24Token $token Токен для обновления
@@ -105,23 +145,36 @@ readonly class TokenManager
     public function refreshToken(Bitrix24Token $token): Bitrix24Token
     {
         try {
-            $config = config("bitrix24.connections.{$token->connection}");
+            $config = config("bitrix24.connections.{$token->connection}", []);
+            $oauthServer = rtrim((string) ($config['oauth_server'] ?? DefaultOAuthServerUrl::default()), '/');
 
-            $credentials = Credentials::createFromOAuth(
-                new AccessToken(
-                    $token->access_token,
-                    $token->refresh_token,
-                    $token->expires_in
-                ),
-                $config['client_id'],
-                $config['client_secret'],
-                $token->domain
+            $response = Http::asForm()->timeout(config('bitrix24.api.timeout', 30))->post(
+                $oauthServer . '/oauth/token/',
+                [
+                    'grant_type' => 'refresh_token',
+                    'client_id' => $config['client_id'],
+                    'client_secret' => $config['client_secret'],
+                    'refresh_token' => $token->refresh_token,
+                ]
             );
 
-            $expiresAt = Carbon::now()->addSeconds($token->expires_in);
+            if ($response->failed()) {
+                throw new RuntimeException('Не удалось обновить токен Bitrix24: ' . $response->body());
+            }
+
+            $data = $response->json();
+
+            if (!isset($data['access_token'], $data['refresh_token'])) {
+                throw new RuntimeException('Ответ Bitrix24 не содержит токены.');
+            }
 
             $this->tokenRepository->update($token->id, [
-                'expires_at' => $expiresAt,
+                'access_token' => $data['access_token'],
+                'refresh_token' => $data['refresh_token'],
+                'expires_in' => $data['expires_in'] ?? 3600,
+                'expires_at' => $this->resolveExpiresAt($data),
+                'domain' => $data['domain'] ?? $token->domain,
+                'is_active' => true,
             ]);
 
             $token->refresh();
@@ -129,7 +182,7 @@ readonly class TokenManager
             $this->cacheToken($token);
 
             return $token;
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
             $this->tokenRepository->deactivate($token->id);
             $this->invalidateCache($token);
 
@@ -161,14 +214,14 @@ readonly class TokenManager
     }
 
     /**
-     * Получить credentials для SDK.
+     * Получить AuthToken для SDK.
      *
      * @param int|null $userId ID пользователя
      * @param string $connection Название подключения
-     * @return Credentials|null
-     * @throws InvalidArgumentException|\Bitrix24\SDK\Core\Exceptions\InvalidArgumentException
+     * @return AuthToken|null
+     * @throws InvalidArgumentException
      */
-    public function getCredentials(?int $userId = null, string $connection = 'main'): ?Credentials
+    public function getAuthToken(?int $userId = null, string $connection = 'main'): ?AuthToken
     {
         $token = $this->getToken($userId, $connection);
 
@@ -176,17 +229,39 @@ readonly class TokenManager
             return null;
         }
 
-        $config = config("bitrix24.connections.{$connection}");
+        return $this->toAuthToken($token);
+    }
 
-        return Credentials::createFromOAuth(
-            new AccessToken(
-                $token->access_token,
-                $token->refresh_token,
-                $token->expires_in
-            ),
-            $config['client_id'],
-            $config['client_secret'],
-            $token->domain
+    /**
+     * Собрать AuthToken SDK из модели.
+     *
+     * @param Bitrix24Token $token Модель токена
+     * @return AuthToken
+     */
+    public function toAuthToken(Bitrix24Token $token): AuthToken
+    {
+        return new AuthToken(
+            $token->access_token,
+            $token->refresh_token,
+            $token->expires_at?->getTimestamp() ?? (time() + (int) $token->expires_in),
+            $token->expires_in
+        );
+    }
+
+    /**
+     * Получить профиль приложения для SDK.
+     *
+     * @param string $connection Название подключения
+     * @return ApplicationProfile
+     */
+    public function getApplicationProfile(string $connection = 'main'): ApplicationProfile
+    {
+        $config = config("bitrix24.connections.{$connection}", []);
+
+        return new ApplicationProfile(
+            (string) $config['client_id'],
+            (string) $config['client_secret'],
+            Scope::initFromString((string) ($config['scope'] ?? ''))
         );
     }
 
@@ -226,5 +301,23 @@ readonly class TokenManager
         $prefix = config('bitrix24.cache.prefix', 'bitrix24_tokens');
         return "{$prefix}:{$connection}:" . ($userId ?? 'guest');
     }
-}
 
+    /**
+     * Вычислить дату истечения токена.
+     *
+     * @param array $tokenData Данные ответа OAuth
+     * @return Carbon|null
+     */
+    private function resolveExpiresAt(array $tokenData): ?Carbon
+    {
+        if (isset($tokenData['expires']) && is_numeric($tokenData['expires'])) {
+            return Carbon::createFromTimestamp((int) $tokenData['expires']);
+        }
+
+        if (isset($tokenData['expires_in'])) {
+            return Carbon::now()->addSeconds((int) $tokenData['expires_in']);
+        }
+
+        return null;
+    }
+}

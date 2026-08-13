@@ -13,13 +13,15 @@ return [
             'client_secret' => env('BITRIX24_CLIENT_SECRET'),
             'redirect_uri' => env('BITRIX24_REDIRECT_URI', env('APP_URL') . '/api/bitrix24/callback'),
             'webhook_url' => env('BITRIX24_WEBHOOK_URL'),
+            'scope' => env('BITRIX24_SCOPE', 'crm,task,user,lists'),
+            'oauth_server' => env('BITRIX24_OAUTH_SERVER', 'https://oauth.bitrix.info/'),
         ],
     ],
 
     'token_storage' => env('BITRIX24_TOKEN_STORAGE', 'database'),
 
     'cache' => [
-        'store' => env('BITRIX24_CACHE_STORE', 'database'),
+        'store' => env('BITRIX24_CACHE_STORE'),
         'prefix' => 'bitrix24_tokens',
         'ttl' => 3600,
     ],

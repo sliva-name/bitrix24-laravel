@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Leko\Bitrix24\Http\Middleware;
 
-use App\Facades\Bitrix24;
+use Leko\Bitrix24\Facades\Bitrix24;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -28,12 +28,14 @@ class EnsureBitrix24Token
     {
         $userId = $request->user()?->id;
 
-        if (!$userId) {
+        if ($userId === null) {
             return response()->json([
                 'error' => 'Не авторизован',
                 'message' => 'Требуется аутентификация пользователя',
             ], 401);
         }
+
+        $userId = (int) $userId;
 
         $hasValidToken = Bitrix24::setConnection($connection)
             ->hasValidToken($userId);

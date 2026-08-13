@@ -4,17 +4,8 @@ declare(strict_types=1);
 
 namespace Leko\Bitrix24\Providers;
 
-use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Leko\Bitrix24\Bitrix24Service;
-use Leko\Bitrix24\Clients\CompanyClient;
-use Leko\Bitrix24\Clients\ContactClient;
-use Leko\Bitrix24\Clients\CrmClient;
-use Leko\Bitrix24\Clients\DealClient;
-use Leko\Bitrix24\Clients\LeadClient;
-use Leko\Bitrix24\Clients\ListClient;
-use Leko\Bitrix24\Clients\TaskClient;
-use Leko\Bitrix24\Clients\UserClient;
 use Leko\Bitrix24\Contracts\Bitrix24ServiceInterface;
 use Leko\Bitrix24\Contracts\CompanyClientInterface;
 use Leko\Bitrix24\Contracts\ContactClientInterface;
@@ -48,9 +39,11 @@ class Bitrix24ServiceProvider extends ServiceProvider
         $this->app->bind(Bitrix24WebhookRepositoryInterface::class, Bitrix24WebhookRepository::class);
 
         $this->app->singleton(TokenManager::class, function ($app) {
+            $store = config('bitrix24.cache.store');
+
             return new TokenManager(
                 $app->make(Bitrix24TokenRepositoryInterface::class),
-                $app['cache']->store(config('bitrix24.cache.store'))
+                $store ? $app['cache']->store($store) : $app['cache']->store()
             );
         });
 
@@ -100,19 +93,6 @@ class Bitrix24ServiceProvider extends ServiceProvider
         }
 
         $this->loadMigrationsFrom(__DIR__ . '/../../database/migrations');
-
-        $this->registerRoutes();
-    }
-
-    /**
-     * Регистрация роутов пакета.
-     *
-     * @return void
-     */
-    protected function registerRoutes(): void
-    {
-        // Routes are now handled in the main application
-        // No need to load routes from package
     }
 
     /**
