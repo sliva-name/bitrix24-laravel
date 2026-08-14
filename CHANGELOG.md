@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Incoming Bitrix24 webhook endpoint (`BITRIX24_WEBHOOK_ENABLED`, `BITRIX24_WEBHOOK_SECRET`, `BITRIX24_WEBHOOK_PATH`)
+- Automatic `bitrix24.token` middleware alias
+- OAuth HTTP retries via `api.retry_attempts` / `api.retry_delay`
+
+### Changed
+- CRM entity clients only declare the entity name; CRUD lives on `CrmEntityClient`
+- Incoming webhook intake is disabled by default
+
+### Removed
+- Unused `token_storage` config key
+- Historical `FLEXIBILITY_SUMMARY.md`
+
 ## [1.2.0] - 2026-08-14
 
 ### Changed

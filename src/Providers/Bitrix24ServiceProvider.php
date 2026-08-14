@@ -15,6 +15,7 @@ use Leko\Bitrix24\Contracts\LeadClientInterface;
 use Leko\Bitrix24\Contracts\ListClientInterface;
 use Leko\Bitrix24\Contracts\TaskClientInterface;
 use Leko\Bitrix24\Contracts\UserClientInterface;
+use Leko\Bitrix24\Http\Middleware\EnsureBitrix24Token;
 use Leko\Bitrix24\Repositories\Bitrix24Token\Bitrix24TokenRepository;
 use Leko\Bitrix24\Repositories\Bitrix24Token\Bitrix24TokenRepositoryInterface;
 use Leko\Bitrix24\Repositories\Bitrix24Webhook\Bitrix24WebhookRepository;
@@ -66,6 +67,12 @@ class Bitrix24ServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        $this->app['router']->aliasMiddleware('bitrix24.token', EnsureBitrix24Token::class);
+
+        if (config('bitrix24.webhook.enabled')) {
+            $this->loadRoutesFrom(__DIR__ . '/../../routes/webhook.php');
+        }
+
         if ($this->app->runningInConsole()) {
             $this->publishes([
                 __DIR__ . '/../../config/bitrix24.php' => config_path('bitrix24.php'),

@@ -9,8 +9,8 @@
 Создайте форк репозитория на GitHub и клонируйте его локально:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/laravel-bitrix24.git
-cd laravel-bitrix24
+git clone https://github.com/YOUR_USERNAME/bitrix24-laravel.git
+cd bitrix24-laravel
 ```
 
 ### 2. Создайте ветку для фичи
@@ -117,6 +117,6 @@ git commit -m "Add: краткое описание изменений"
 Если у вас есть вопросы, создайте issue или свяжитесь с нами:
 
 - Email: lucy@leko.team
-- GitHub Issues: [Создать issue](https://github.com/leko-team/laravel-bitrix24/issues)
+- GitHub Issues: [Создать issue](https://github.com/sliva-name/bitrix24-laravel/issues)
 
 Спасибо за ваш вклад! 🎉

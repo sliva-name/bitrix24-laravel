@@ -223,9 +223,20 @@ readonly class TokenManager
      */
     private function requestOAuthToken(ConnectionConfig $config, array $params): array
     {
-        $response = Http::asForm()
-            ->timeout((int) config('bitrix24.api.timeout', 30))
-            ->post($config->oauthTokenUrl(), $params);
+        $attempts = max(1, (int) config('bitrix24.api.retry_attempts', 3));
+        $delay = (int) config('bitrix24.api.retry_delay', 1000);
+
+        $response = retry($attempts, function () use ($config, $params) {
+            $response = Http::asForm()
+                ->timeout((int) config('bitrix24.api.timeout', 30))
+                ->post($config->oauthTokenUrl(), $params);
+
+            if ($response->serverError()) {
+                throw new OAuthException('OAuth-сервер недоступен: ' . $response->body());
+            }
+
+            return $response;
+        }, $delay);
 
         if ($response->failed()) {
             throw new OAuthException('Не удалось выполнить OAuth-запрос: ' . $response->body());

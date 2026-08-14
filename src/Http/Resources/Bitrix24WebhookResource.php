@@ -8,17 +8,12 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * Ресурс вебхука Bitrix24
- *
- * Преобразует модель Bitrix24Webhook в JSON ответ.
+ * JSON-представление входящего вебхука Bitrix24.
  */
 class Bitrix24WebhookResource extends JsonResource
 {
     /**
-     * Преобразовать ресурс в массив.
-     *
-     * @param Request $request HTTP запрос
-     * @return array
+     * @return array<string, mixed>
      */
     public function toArray(Request $request): array
     {
@@ -32,7 +27,7 @@ class Bitrix24WebhookResource extends JsonResource
             'error_message' => $this->error_message,
             'processed_at' => $this->processed_at?->toIso8601String(),
             'created_at' => $this->created_at->toIso8601String(),
-            'payload' => $this->when($request->boolean('include_payload'), $this->payload),
+            'payload' => $this->payload,
         ];
     }
 }

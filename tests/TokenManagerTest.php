@@ -100,6 +100,29 @@ class TokenManagerTest extends TestCase
         $this->assertFalse($token->fresh()->is_active);
     }
 
+    public function test_it_retries_oauth_on_server_errors(): void
+    {
+        Http::fake([
+            'https://oauth.bitrix.info/oauth/token/' => Http::sequence()
+                ->push(['error' => 'temporarily_unavailable'], 503)
+                ->push([
+                    'access_token' => 'access',
+                    'refresh_token' => 'refresh',
+                    'expires_in' => 3600,
+                    'domain' => 'portal.bitrix24.ru',
+                    'scope' => 'crm',
+                ]),
+        ]);
+
+        config()->set('bitrix24.api.retry_attempts', 2);
+        config()->set('bitrix24.api.retry_delay', 0);
+
+        $payload = $this->manager->exchangeAuthorizationCode('auth-code');
+
+        $this->assertSame('access', $payload['access_token']);
+        Http::assertSentCount(2);
+    }
+
     public function test_it_throws_when_oauth_response_has_no_tokens(): void
     {
         Http::fake([

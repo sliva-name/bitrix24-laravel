@@ -67,9 +67,10 @@
 - ✅ Полная поддержка **Dependency Injection**
 
 ### 📦 Дополнительно
-- ✅ Middleware для защиты роутов
+- ✅ Middleware `bitrix24.token` (регистрируется автоматически)
+- ✅ Приём входящих вебхуков Bitrix24
 - ✅ API Resources для JSON-ответов
-- ✅ Логирование API-вызовов
+- ✅ Логирование API-вызовов и retry OAuth-запросов
 - ✅ Типизированные исключения (`AuthenticationException`, `OAuthException`, …)
 - ✅ Подробная документация с примерами
 
@@ -124,10 +125,17 @@ BITRIX24_SCOPE=crm,task,user,lists
 BITRIX24_OAUTH_SERVER=https://oauth.bitrix.info/
 ```
 
-#### Для Webhook:
+#### Для Webhook-аутентификации исходящих запросов:
 ```env
 BITRIX24_AUTH_TYPE=webhook
 BITRIX24_WEBHOOK_URL=https://your-domain.bitrix24.ru/rest/123/your_webhook_key/
+```
+
+#### Для приёма входящих вебхуков Bitrix24:
+```env
+BITRIX24_WEBHOOK_ENABLED=true
+BITRIX24_WEBHOOK_SECRET=your_application_token
+BITRIX24_WEBHOOK_PATH=bitrix24/webhook
 ```
 
 ---
@@ -224,6 +232,12 @@ return [
         'store' => env('BITRIX24_CACHE_STORE'),
         'prefix' => 'bitrix24_tokens',
         'ttl' => 3600,
+    ],
+
+    'webhook' => [
+        'enabled' => env('BITRIX24_WEBHOOK_ENABLED', false),
+        'secret' => env('BITRIX24_WEBHOOK_SECRET'),
+        'path' => env('BITRIX24_WEBHOOK_PATH', 'bitrix24/webhook'),
     ],
 
     'logging' => [
@@ -680,11 +694,11 @@ public readonly float $duration;     // Длительность в секунд
 
 ---
 
-## 🛡️ Middleware
+## 🛡️ Middleware и входящие вебхуки
 
 ### EnsureBitrix24Token
 
-Проверяет наличие валидного токена:
+Алиас `bitrix24.token` регистрируется пакетом автоматически:
 
 ```php
 Route::middleware(['auth', 'bitrix24.token'])->group(function () {
@@ -692,13 +706,9 @@ Route::middleware(['auth', 'bitrix24.token'])->group(function () {
 });
 ```
 
-Регистрация в `app/Http/Kernel.php`:
+### Входящие вебхуки
 
-```php
-protected $middlewareAliases = [
-    'bitrix24.token' => \Leko\Bitrix24\Http\Middleware\EnsureBitrix24Token::class,
-];
-```
+Если `BITRIX24_WEBHOOK_ENABLED=true`, пакет принимает POST на `BITRIX24_WEBHOOK_PATH` (по умолчанию `/bitrix24/webhook`), проверяет `application_token` и сохраняет событие в таблицу `bitrix24_webhooks`.
 
 ---
 
@@ -826,7 +836,6 @@ do {
 
 - **[EXTENSIBILITY.md](EXTENSIBILITY.md)** - Полное руководство по расширению пакета
 - **[ADVANCED_USAGE.md](ADVANCED_USAGE.md)** - Продвинутые примеры использования
-- **[FLEXIBILITY_SUMMARY.md](FLEXIBILITY_SUMMARY.md)** - Резюме гибкости архитектуры
 - **[MIGRATION_GUIDE.md](MIGRATION_GUIDE.md)** - Руководство по миграции
 - **[CHANGELOG.md](CHANGELOG.md)** - История изменений
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** - Правила контрибуции
