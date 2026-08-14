@@ -39,4 +39,13 @@ class Bitrix24TokenTest extends TestCase
         $this->assertFalse($token->isExpiringSoon());
         $this->assertFalse($token->isExpired());
     }
+
+    public function test_token_without_expiry_is_not_expired(): void
+    {
+        $token = new Bitrix24Token();
+        $token->expires_at = null;
+
+        $this->assertFalse($token->isExpired());
+        $this->assertFalse($token->isExpiringSoon());
+    }
 }

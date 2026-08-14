@@ -4,34 +4,22 @@ declare(strict_types=1);
 
 namespace Leko\Bitrix24\Repositories\Bitrix24Token;
 
-use Leko\Bitrix24\Models\Bitrix24Token;
 use Illuminate\Support\Collection;
+use Leko\Bitrix24\Models\Bitrix24Token;
+use Leko\Bitrix24\Repositories\Concerns\UpdatesEloquentRecords;
 
 /**
- * Репозиторий токенов Bitrix24
- *
- * Обрабатывает все операции с базой данных, связанные с токенами Bitrix24.
+ * Репозиторий OAuth-токенов Bitrix24.
  */
 class Bitrix24TokenRepository implements Bitrix24TokenRepositoryInterface
 {
-    /**
-     * Найти токен по ID.
-     *
-     * @param int $id Идентификатор токена
-     * @return Bitrix24Token|null
-     */
+    use UpdatesEloquentRecords;
+
     public function find(int $id): ?Bitrix24Token
     {
-        return Bitrix24Token::find($id);
+        return Bitrix24Token::query()->find($id);
     }
 
-    /**
-     * Найти валидный токен для пользователя и подключения.
-     *
-     * @param int|null $userId Идентификатор пользователя
-     * @param string $connection Название подключения
-     * @return Bitrix24Token|null
-     */
     public function findValidToken(?int $userId, string $connection = 'main'): ?Bitrix24Token
     {
         return Bitrix24Token::query()
@@ -41,13 +29,6 @@ class Bitrix24TokenRepository implements Bitrix24TokenRepositoryInterface
             ->first();
     }
 
-    /**
-     * Найти активный токен, включая истёкший.
-     *
-     * @param int|null $userId Идентификатор пользователя
-     * @param string $connection Название подключения
-     * @return Bitrix24Token|null
-     */
     public function findActiveToken(?int $userId, string $connection = 'main'): ?Bitrix24Token
     {
         return Bitrix24Token::query()
@@ -58,13 +39,6 @@ class Bitrix24TokenRepository implements Bitrix24TokenRepositoryInterface
             ->first();
     }
 
-    /**
-     * Найти токен по домену и подключению.
-     *
-     * @param string $domain Домен Bitrix24
-     * @param string $connection Название подключения
-     * @return Bitrix24Token|null
-     */
     public function findByDomain(string $domain, string $connection = 'main'): ?Bitrix24Token
     {
         return Bitrix24Token::query()
@@ -74,15 +48,9 @@ class Bitrix24TokenRepository implements Bitrix24TokenRepositoryInterface
             ->first();
     }
 
-    /**
-     * Создать или обновить токен.
-     *
-     * @param array $data Данные токена
-     * @return Bitrix24Token
-     */
     public function upsert(array $data): Bitrix24Token
     {
-        return Bitrix24Token::updateOrCreate(
+        return Bitrix24Token::query()->updateOrCreate(
             [
                 'connection' => $data['connection'] ?? 'main',
                 'user_id' => $data['user_id'] ?? null,
@@ -100,47 +68,6 @@ class Bitrix24TokenRepository implements Bitrix24TokenRepositoryInterface
         );
     }
 
-    /**
-     * Обновить токен.
-     *
-     * @param int $id Идентификатор токена
-     * @param array $data Данные для обновления
-     * @return bool
-     */
-    public function update(int $id, array $data): bool
-    {
-        $token = $this->find($id);
-
-        if (!$token) {
-            return false;
-        }
-
-        return $token->update($data);
-    }
-
-    /**
-     * Удалить токен.
-     *
-     * @param int $id Идентификатор токена
-     * @return bool
-     */
-    public function delete(int $id): bool
-    {
-        $token = $this->find($id);
-
-        if (!$token) {
-            return false;
-        }
-
-        return $token->delete();
-    }
-
-    /**
-     * Получить все токены для пользователя.
-     *
-     * @param int $userId Идентификатор пользователя
-     * @return Collection
-     */
     public function getAllForUser(int $userId): Collection
     {
         return Bitrix24Token::query()
@@ -148,11 +75,6 @@ class Bitrix24TokenRepository implements Bitrix24TokenRepositoryInterface
             ->get();
     }
 
-    /**
-     * Получить все истекшие токены.
-     *
-     * @return Collection
-     */
     public function getExpiredTokens(): Collection
     {
         return Bitrix24Token::query()
@@ -162,38 +84,21 @@ class Bitrix24TokenRepository implements Bitrix24TokenRepositoryInterface
             ->get();
     }
 
-    /**
-     * Получить все токены, срок действия которых истекает.
-     *
-     * @return Collection
-     */
     public function getExpiringSoonTokens(): Collection
     {
         return Bitrix24Token::query()
             ->active()
             ->whereNotNull('expires_at')
-            ->where('expires_at', '<', now()->addMinutes(5))
+            ->where('expires_at', '<', now()->addMinutes(Bitrix24Token::EXPIRING_SOON_MINUTES))
             ->where('expires_at', '>', now())
             ->get();
     }
 
-    /**
-     * Деактивировать токен.
-     *
-     * @param int $id Идентификатор токена
-     * @return bool
-     */
     public function deactivate(int $id): bool
     {
         return $this->update($id, ['is_active' => false]);
     }
 
-    /**
-     * Активировать токен.
-     *
-     * @param int $id Идентификатор токена
-     * @return bool
-     */
     public function activate(int $id): bool
     {
         return $this->update($id, ['is_active' => true]);

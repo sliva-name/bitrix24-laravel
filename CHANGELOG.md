@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Deduplicated CRM entity clients through a shared `CrmEntityClient` base
+- Unified OAuth token exchange and refresh through `TokenManager`
+- Extracted `ConnectionConfig` and `Domain` helpers for connection settings
+- `Bitrix24ServiceInterface` now returns client interfaces instead of concrete classes
+- `Bitrix24Service` and the `bitrix24` container alias share a single singleton
+- Replaced generic `RuntimeException` with dedicated package exceptions
+- `callCrmMethod()` now delegates to `callMethod()`
+- Incoming webhook REST success checks use a shared `isSuccessful()` helper
+
+### Added
+- `Bitrix24Service::flushCustomClients()` and `client()` lookup for built-in clients
+- `TokenManager::exchangeAuthorizationCode()` for the OAuth callback flow
+- Unit and integration tests for tokens, OAuth, clients, batch requests and config
+
+### Fixed
+- Refreshing a token no longer stores an un-normalized portal domain
+- `HasCaching::flushCache()` no longer throws on cache stores without tag support
+
 ## [1.1.0] - 2026-08-13
 
 ### Changed

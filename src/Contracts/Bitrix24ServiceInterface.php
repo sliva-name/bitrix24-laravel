@@ -6,131 +6,45 @@ namespace Leko\Bitrix24\Contracts;
 
 use Bitrix24\SDK\Services\ServiceBuilder;
 use Leko\Bitrix24\Clients\BaseClient;
-use Leko\Bitrix24\Clients\CompanyClient;
-use Leko\Bitrix24\Clients\ContactClient;
-use Leko\Bitrix24\Clients\CrmClient;
-use Leko\Bitrix24\Clients\DealClient;
-use Leko\Bitrix24\Clients\LeadClient;
-use Leko\Bitrix24\Clients\ListClient;
-use Leko\Bitrix24\Clients\TaskClient;
-use Leko\Bitrix24\Clients\UserClient;
 
 /**
- * Интерфейс сервиса Bitrix24
- *
- * Главный интерфейс для интеграции с Bitrix24.
+ * Главный интерфейс интеграции с Bitrix24.
  */
 interface Bitrix24ServiceInterface
 {
-    /**
-     * Получить CRM клиент.
-     *
-     * @return CrmClient
-     */
-    public function crm(): CrmClient;
+    public function crm(): CrmClientInterface;
 
-    /**
-     * Получить клиент лидов.
-     *
-     * @return LeadClient
-     */
-    public function leads(): LeadClient;
+    public function leads(): LeadClientInterface;
 
-    /**
-     * Получить клиент контактов.
-     *
-     * @return ContactClient
-     */
-    public function contacts(): ContactClient;
+    public function contacts(): ContactClientInterface;
 
-    /**
-     * Получить клиент компаний.
-     *
-     * @return CompanyClient
-     */
-    public function companies(): CompanyClient;
+    public function companies(): CompanyClientInterface;
 
-    /**
-     * Получить клиент сделок.
-     *
-     * @return DealClient
-     */
-    public function deals(): DealClient;
+    public function deals(): DealClientInterface;
 
-    /**
-     * Получить клиент задач.
-     *
-     * @return TaskClient
-     */
-    public function tasks(): TaskClient;
+    public function tasks(): TaskClientInterface;
 
-    /**
-     * Получить клиент пользователей.
-     *
-     * @return UserClient
-     */
-    public function users(): UserClient;
+    public function users(): UserClientInterface;
 
-    /**
-     * Получить клиент пользовательских списков.
-     *
-     * @return ListClient
-     */
-    public function lists(): ListClient;
+    public function lists(): ListClientInterface;
 
-    /**
-     * Получить зарегистрированный кастомный клиент.
-     *
-     * @param string $name Название клиента
-     * @return BaseClient
-     */
     public function client(string $name): BaseClient;
 
-    /**
-     * Получить официальный ServiceBuilder SDK.
-     *
-     * @return ServiceBuilder
-     */
     public function sdk(): ServiceBuilder;
 
     /**
-     * Получить URL авторизации для OAuth.
-     *
-     * @param array $scopes Скоупы
-     * @param null|string $state Состояние
-     * @return string
+     * @param list<string> $scopes
      */
     public function getAuthorizationUrl(array $scopes = [], ?string $state = null): string;
 
     /**
-     * Обработать OAuth callback.
-     *
-     * @param string $code Код
-     * @return array
+     * @return array{token_id: mixed, domain: mixed, expires_at: mixed}
      */
     public function handleCallback(string $code): array;
 
-    /**
-     * Установить используемое подключение.
-     *
-     * @param string $connection Подключение
-     * @return self
-     */
     public function setConnection(string $connection): self;
 
-    /**
-     * Установить ID пользователя для управления токенами.
-     *
-     * @param null|int $userId Идентификатор пользователя
-     * @return self
-     */
     public function setUserId(?int $userId): self;
 
-    /**
-     * Проверить наличие валидного токена у пользователя.
-     *
-     * @param null|int $userId Идентификатор пользователя
-     * @return bool
-     */
     public function hasValidToken(?int $userId = null): bool;
 }
