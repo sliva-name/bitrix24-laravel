@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Leko\Bitrix24\Tests;
 
+use Bitrix24\SDK\Core\Contracts\ApiClientInterface;
 use Bitrix24\SDK\Core\Contracts\CoreInterface;
+use Bitrix24\SDK\Core\Credentials\Credentials;
 use Bitrix24\SDK\Services\ServiceBuilder;
 use Leko\Bitrix24\Clients\BaseClient;
 use Mockery;
@@ -13,10 +15,10 @@ final class TestClient extends BaseClient
 {
     public static function fake(bool $webhook = false): self
     {
-        $credentials = Mockery::mock();
+        $credentials = Mockery::mock(Credentials::class);
         $credentials->shouldReceive('isWebhookContext')->andReturn($webhook);
 
-        $apiClient = Mockery::mock();
+        $apiClient = Mockery::mock(ApiClientInterface::class);
         $apiClient->shouldReceive('getCredentials')->andReturn($credentials);
 
         $core = Mockery::mock(CoreInterface::class);
