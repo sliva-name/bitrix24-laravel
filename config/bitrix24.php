@@ -18,8 +18,6 @@ return [
         ],
     ],
 
-    'token_storage' => env('BITRIX24_TOKEN_STORAGE', 'database'),
-
     'cache' => [
         'store' => env('BITRIX24_CACHE_STORE'),
         'prefix' => 'bitrix24_tokens',
@@ -27,8 +25,9 @@ return [
     ],
 
     'webhook' => [
-        'enabled' => env('BITRIX24_WEBHOOK_ENABLED', true),
+        'enabled' => env('BITRIX24_WEBHOOK_ENABLED', false),
         'secret' => env('BITRIX24_WEBHOOK_SECRET'),
+        'path' => env('BITRIX24_WEBHOOK_PATH', 'bitrix24/webhook'),
     ],
 
     'logging' => [
