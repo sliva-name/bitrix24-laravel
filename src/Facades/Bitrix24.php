@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Leko\Bitrix24\Facades;
 
+use Bitrix24\SDK\Services\ServiceBuilder;
 use Illuminate\Support\Facades\Facade;
 use Leko\Bitrix24\Bitrix24Service;
+use Leko\Bitrix24\Clients\BaseClient;
 use Leko\Bitrix24\Clients\CompanyClient;
 use Leko\Bitrix24\Clients\ContactClient;
 use Leko\Bitrix24\Clients\CrmClient;
@@ -16,7 +18,7 @@ use Leko\Bitrix24\Clients\TaskClient;
 use Leko\Bitrix24\Clients\UserClient;
 
 /**
- * Фасад для Bitrix24Service
+ * Фасад для Bitrix24Service.
  *
  * @method static CrmClient crm()
  * @method static LeadClient leads()
@@ -26,8 +28,8 @@ use Leko\Bitrix24\Clients\UserClient;
  * @method static TaskClient tasks()
  * @method static UserClient users()
  * @method static ListClient lists()
- * @method static \Leko\Bitrix24\Clients\BaseClient client(string $name)
- * @method static \Bitrix24\SDK\Services\ServiceBuilder sdk()
+ * @method static BaseClient client(string $name)
+ * @method static ServiceBuilder sdk()
  * @method static string getAuthorizationUrl(array $scopes = [], ?string $state = null)
  * @method static array handleCallback(string $code)
  * @method static Bitrix24Service setConnection(string $connection)
@@ -38,14 +40,8 @@ use Leko\Bitrix24\Clients\UserClient;
  */
 class Bitrix24 extends Facade
 {
-    /**
-     * Получить зарегистрированное имя компонента.
-     *
-     * @return string
-     */
     protected static function getFacadeAccessor(): string
     {
         return 'bitrix24';
     }
 }
-

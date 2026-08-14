@@ -22,15 +22,10 @@ use Leko\Bitrix24\Repositories\Bitrix24Webhook\Bitrix24WebhookRepositoryInterfac
 use Leko\Bitrix24\TokenManager;
 
 /**
- * Service Provider для пакета Laravel Bitrix24
+ * Service Provider пакета Laravel Bitrix24.
  */
 class Bitrix24ServiceProvider extends ServiceProvider
 {
-    /**
-     * Регистрация сервисов в контейнере.
-     *
-     * @return void
-     */
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__ . '/../../config/bitrix24.php', 'bitrix24');
@@ -51,35 +46,24 @@ class Bitrix24ServiceProvider extends ServiceProvider
             return new Bitrix24Service($app->make(TokenManager::class));
         });
 
-        $this->app->singleton('bitrix24', function ($app) {
-            return $app->make(Bitrix24ServiceInterface::class);
-        });
+        $this->app->alias(Bitrix24ServiceInterface::class, Bitrix24Service::class);
+        $this->app->alias(Bitrix24ServiceInterface::class, 'bitrix24');
 
         $this->registerClientInterfaces();
     }
 
-    /**
-     * Регистрация интерфейсов клиентов в контейнере.
-     *
-     * @return void
-     */
     protected function registerClientInterfaces(): void
     {
-        $this->app->bind(CrmClientInterface::class, fn($app) => $app->make('bitrix24')->crm());
-        $this->app->bind(LeadClientInterface::class, fn($app) => $app->make('bitrix24')->leads());
-        $this->app->bind(ContactClientInterface::class, fn($app) => $app->make('bitrix24')->contacts());
-        $this->app->bind(CompanyClientInterface::class, fn($app) => $app->make('bitrix24')->companies());
-        $this->app->bind(DealClientInterface::class, fn($app) => $app->make('bitrix24')->deals());
-        $this->app->bind(TaskClientInterface::class, fn($app) => $app->make('bitrix24')->tasks());
-        $this->app->bind(UserClientInterface::class, fn($app) => $app->make('bitrix24')->users());
-        $this->app->bind(ListClientInterface::class, fn($app) => $app->make('bitrix24')->lists());
+        $this->app->bind(CrmClientInterface::class, fn ($app) => $app->make('bitrix24')->crm());
+        $this->app->bind(LeadClientInterface::class, fn ($app) => $app->make('bitrix24')->leads());
+        $this->app->bind(ContactClientInterface::class, fn ($app) => $app->make('bitrix24')->contacts());
+        $this->app->bind(CompanyClientInterface::class, fn ($app) => $app->make('bitrix24')->companies());
+        $this->app->bind(DealClientInterface::class, fn ($app) => $app->make('bitrix24')->deals());
+        $this->app->bind(TaskClientInterface::class, fn ($app) => $app->make('bitrix24')->tasks());
+        $this->app->bind(UserClientInterface::class, fn ($app) => $app->make('bitrix24')->users());
+        $this->app->bind(ListClientInterface::class, fn ($app) => $app->make('bitrix24')->lists());
     }
 
-    /**
-     * Загрузка сервисов приложения.
-     *
-     * @return void
-     */
     public function boot(): void
     {
         if ($this->app->runningInConsole()) {
@@ -95,15 +79,11 @@ class Bitrix24ServiceProvider extends ServiceProvider
         $this->loadMigrationsFrom(__DIR__ . '/../../database/migrations');
     }
 
-    /**
-     * Получить список сервисов, предоставляемых провайдером.
-     *
-     * @return array
-     */
     public function provides(): array
     {
         return [
             'bitrix24',
+            Bitrix24Service::class,
             Bitrix24ServiceInterface::class,
             TokenManager::class,
             Bitrix24TokenRepositoryInterface::class,
@@ -111,4 +91,3 @@ class Bitrix24ServiceProvider extends ServiceProvider
         ];
     }
 }
-

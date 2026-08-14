@@ -6,25 +6,12 @@ namespace Leko\Bitrix24\Clients;
 
 use Bitrix24\SDK\Services\Task\Result\TaskItemResult;
 use Leko\Bitrix24\Contracts\TaskClientInterface;
-use Throwable;
 
 /**
- * Клиент задач для Bitrix24
- *
- * Предоставляет методы для работы с задачами.
+ * Клиент задач Bitrix24.
  */
 class TaskClient extends BaseClient implements TaskClientInterface
 {
-    /**
-     * Получить список задач.
-     *
-     * @param array $filter Фильтры выборки
-     * @param array $select Список полей для выборки
-     * @param array $order Сортировка результатов
-     * @param int $start Смещение для пагинации
-     * @return TaskItemResult[]
-     * @throws Throwable
-     */
     public function list(array $filter = [], array $select = ['*'], array $order = ['ID' => 'DESC'], int $start = 0): array
     {
         return $this->callMethod('tasks.task.list', [
@@ -32,68 +19,42 @@ class TaskClient extends BaseClient implements TaskClientInterface
             'select' => $select,
             'order' => $order,
             'start' => $start,
-        ], fn() => $this->serviceBuilder->getTaskScope()->task()->list($order, $filter, $select, $start)->getTasks()) ?? [];
+        ], fn () => $this->serviceBuilder->getTaskScope()->task()->list($order, $filter, $select, $start)->getTasks()) ?? [];
     }
 
-    /**
-     * Получить задачу по ID.
-     *
-     * @param int $id ID задачи
-     * @return TaskItemResult
-     * @throws Throwable
-     */
     public function get(int $id): TaskItemResult
     {
-        return $this->callMethod('tasks.task.get', [
-            'id' => $id
-        ], fn() => $this->serviceBuilder->getTaskScope()->task()->get($id)->task());
+        return $this->callMethod(
+            'tasks.task.get',
+            ['id' => $id],
+            fn () => $this->serviceBuilder->getTaskScope()->task()->get($id)->task()
+        );
     }
 
-    /**
-     * Добавить новую задачу.
-     *
-     * @param array $fields Поля новой задачи
-     * @return int
-     * @throws Throwable
-     */
     public function add(array $fields): int
     {
-        return $this->callMethod('tasks.task.add', [
-            'fields' => $fields
-        ], fn() => $this->serviceBuilder->getTaskScope()->task()->add($fields)->getId());
+        return $this->callMethod(
+            'tasks.task.add',
+            ['fields' => $fields],
+            fn () => $this->serviceBuilder->getTaskScope()->task()->add($fields)->getId()
+        );
     }
 
-    /**
-     * Обновить задачу.
-     *
-     * @param int $id ID задачи
-     * @param array $fields Обновляемые поля
-     * @return bool
-     * @throws Throwable
-     */
     public function update(int $id, array $fields): bool
     {
-        $result = $this->callMethod('tasks.task.update', [
-            'id' => $id,
-            'fields' => $fields
-        ], fn() => $this->serviceBuilder->getTaskScope()->task()->update($id, $fields)->isSuccess());
-        
-        return $result === true;
+        return $this->isSuccessful($this->callMethod(
+            'tasks.task.update',
+            ['id' => $id, 'fields' => $fields],
+            fn () => $this->serviceBuilder->getTaskScope()->task()->update($id, $fields)->isSuccess()
+        ));
     }
 
-    /**
-     * Удалить задачу.
-     *
-     * @param int $id ID задачи
-     * @return bool
-     * @throws Throwable
-     */
     public function delete(int $id): bool
     {
-        $result = $this->callMethod('tasks.task.delete', [
-            'id' => $id
-        ], fn() => $this->serviceBuilder->getTaskScope()->task()->delete($id)->isSuccess());
-        
-        return $result === true;
+        return $this->isSuccessful($this->callMethod(
+            'tasks.task.delete',
+            ['id' => $id],
+            fn () => $this->serviceBuilder->getTaskScope()->task()->delete($id)->isSuccess()
+        ));
     }
 }

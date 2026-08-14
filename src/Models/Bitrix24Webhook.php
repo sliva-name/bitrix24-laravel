@@ -9,9 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Модель вебхука Bitrix24
- *
- * Хранит входящие вебхуки от Bitrix24 для обработки.
+ * Входящий вебхук Bitrix24.
  *
  * @property int $id
  * @property string $event
@@ -24,15 +22,21 @@ use Illuminate\Database\Eloquent\Model;
  * @property Carbon|null $processed_at
  * @property Carbon $created_at
  * @property Carbon $updated_at
+ *
+ * @method static Builder<static> pending()
+ * @method static Builder<static> failed()
+ * @method static Builder<static> completed()
+ * @method static Builder<static> forEvent(string $event)
+ * @method static Builder<static> forDomain(string $domain)
  */
 class Bitrix24Webhook extends Model
 {
-    protected $table = 'bitrix24_webhooks';
-
     public const STATUS_PENDING = 'pending';
     public const STATUS_PROCESSING = 'processing';
     public const STATUS_COMPLETED = 'completed';
     public const STATUS_FAILED = 'failed';
+
+    protected $table = 'bitrix24_webhooks';
 
     protected $fillable = [
         'event',
@@ -51,9 +55,6 @@ class Bitrix24Webhook extends Model
         'attempts' => 'integer',
     ];
 
-    /**
-     * Отметить вебхук как обрабатываемый.
-     */
     public function markAsProcessing(): void
     {
         $this->update([
@@ -62,9 +63,6 @@ class Bitrix24Webhook extends Model
         ]);
     }
 
-    /**
-     * Отметить вебхук как завершенный.
-     */
     public function markAsCompleted(): void
     {
         $this->update([
@@ -74,11 +72,6 @@ class Bitrix24Webhook extends Model
         ]);
     }
 
-    /**
-     * Отметить вебхук как неудачный.
-     *
-     * @param string $errorMessage Сообщение об ошибке
-     */
     public function markAsFailed(string $errorMessage): void
     {
         $this->update([
@@ -88,58 +81,26 @@ class Bitrix24Webhook extends Model
         ]);
     }
 
-    /**
-     * Scope для ожидающих вебхуков.
-     *
-     * @param Builder $query Запрос
-     * @return Builder
-     */
     public function scopePending(Builder $query): Builder
     {
         return $query->where('status', self::STATUS_PENDING);
     }
 
-    /**
-     * Scope для неудачных вебхуков.
-     *
-     * @param Builder $query Запрос
-     * @return Builder
-     */
     public function scopeFailed(Builder $query): Builder
     {
         return $query->where('status', self::STATUS_FAILED);
     }
 
-    /**
-     * Scope для завершенных вебхуков.
-     *
-     * @param Builder $query Запрос
-     * @return Builder
-     */
     public function scopeCompleted(Builder $query): Builder
     {
         return $query->where('status', self::STATUS_COMPLETED);
     }
 
-    /**
-     * Scope по типу события.
-     *
-     * @param Builder $query Запрос
-     * @param string $event Тип события
-     * @return Builder
-     */
     public function scopeForEvent(Builder $query, string $event): Builder
     {
         return $query->where('event', $event);
     }
 
-    /**
-     * Scope по домену.
-     *
-     * @param Builder $query Запрос
-     * @param string $domain Домен Bitrix24
-     * @return Builder
-     */
     public function scopeForDomain(Builder $query, string $domain): Builder
     {
         return $query->where('domain', $domain);

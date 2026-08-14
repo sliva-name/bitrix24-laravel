@@ -6,31 +6,24 @@ namespace Leko\Bitrix24;
 
 use Bitrix24\SDK\Core\Credentials\ApplicationProfile;
 use Bitrix24\SDK\Core\Credentials\AuthToken;
-use Bitrix24\SDK\Core\Credentials\DefaultOAuthServerUrl;
 use Bitrix24\SDK\Core\Credentials\Scope;
 use Bitrix24\SDK\Core\Response\DTO\RenewedAuthToken;
 use Carbon\Carbon;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Support\Facades\Http;
+use Leko\Bitrix24\Exceptions\OAuthException;
 use Leko\Bitrix24\Models\Bitrix24Token;
 use Leko\Bitrix24\Repositories\Bitrix24Token\Bitrix24TokenRepositoryInterface;
+use Leko\Bitrix24\Support\ConnectionConfig;
+use Leko\Bitrix24\Support\Domain;
 use Psr\SimpleCache\InvalidArgumentException;
-use RuntimeException;
 use Throwable;
 
 /**
- * Сервис управления токенами
- *
- * Управляет OAuth токенами для интеграции с Bitrix24.
+ * Управление OAuth-токенами Bitrix24.
  */
 readonly class TokenManager
 {
-    /**
-     * Создать новый экземпляр TokenManager.
-     *
-     * @param Bitrix24TokenRepositoryInterface $tokenRepository Репозиторий токенов
-     * @param CacheRepository $cache Репозиторий кеша
-     */
     public function __construct(
         private Bitrix24TokenRepositoryInterface $tokenRepository,
         private CacheRepository $cache
@@ -38,17 +31,11 @@ readonly class TokenManager
     }
 
     /**
-     * Получить валидный токен для пользователя и подключения.
-     *
-     * @param int|null $userId ID пользователя
-     * @param string $connection Название подключения
-     * @return Bitrix24Token|null
      * @throws InvalidArgumentException
      */
     public function getToken(?int $userId = null, string $connection = 'main'): ?Bitrix24Token
     {
         $cacheKey = $this->getCacheKey($userId, $connection);
-
         $token = $this->cache->get($cacheKey);
 
         if ($token instanceof Bitrix24Token && !$token->isExpired() && !$token->isExpiringSoon()) {
@@ -73,45 +60,28 @@ readonly class TokenManager
     }
 
     /**
-     * Сохранить новый токен.
-     *
-     * @param array $tokenData Данные токена
-     * @param int|null $userId ID пользователя
-     * @param string $connection Название подключения
-     * @return Bitrix24Token
+     * @param array<string, mixed> $tokenData
      */
     public function storeToken(array $tokenData, ?int $userId = null, string $connection = 'main'): Bitrix24Token
     {
-        $expiresAt = $this->resolveExpiresAt($tokenData);
-
-        $data = [
+        $token = $this->tokenRepository->upsert([
             'connection' => $connection,
             'user_id' => $userId,
-            'domain' => $tokenData['domain'],
+            'domain' => Domain::normalize((string) $tokenData['domain']),
             'access_token' => $tokenData['access_token'],
             'refresh_token' => $tokenData['refresh_token'],
             'expires_in' => $tokenData['expires_in'] ?? 3600,
-            'expires_at' => $expiresAt,
+            'expires_at' => $this->resolveExpiresAt($tokenData),
             'scope' => $tokenData['scope'] ?? null,
             'metadata' => $tokenData['metadata'] ?? null,
             'is_active' => true,
-        ];
-
-        $token = $this->tokenRepository->upsert($data);
+        ]);
 
         $this->cacheToken($token);
 
         return $token;
     }
 
-    /**
-     * Сохранить токен, обновлённый SDK.
-     *
-     * @param RenewedAuthToken $renewed Обновлённый токен SDK
-     * @param int|null $userId ID пользователя
-     * @param string $connection Название подключения
-     * @return Bitrix24Token
-     */
     public function persistRenewedToken(RenewedAuthToken $renewed, ?int $userId = null, string $connection = 'main'): Bitrix24Token
     {
         $authToken = $renewed->authToken;
@@ -119,7 +89,7 @@ readonly class TokenManager
             ?? $this->tokenRepository->findActiveToken($userId, $connection)?->refresh_token;
 
         if ($refreshToken === null || $refreshToken === '') {
-            throw new RuntimeException('Не удалось сохранить обновлённый токен: отсутствует refresh_token.');
+            throw new OAuthException('Не удалось сохранить обновлённый токен: отсутствует refresh_token.');
         }
 
         return $this->storeToken([
@@ -137,48 +107,57 @@ readonly class TokenManager
     }
 
     /**
-     * Обновить access token.
+     * Обменять authorization code на токены и подготовить данные для сохранения.
      *
-     * @param Bitrix24Token $token Токен для обновления
-     * @return Bitrix24Token
+     * @return array<string, mixed>
      */
+    public function exchangeAuthorizationCode(string $code, string $connection = 'main'): array
+    {
+        $config = ConnectionConfig::load($connection);
+        $data = $this->requestOAuthToken($config, [
+            'grant_type' => 'authorization_code',
+            'client_id' => $config->clientId(),
+            'client_secret' => $config->clientSecret(),
+            'code' => $code,
+            'redirect_uri' => $config->redirectUri(),
+        ]);
+
+        return [
+            'domain' => Domain::normalize((string) ($data['domain'] ?? $config->domain())),
+            'access_token' => $data['access_token'],
+            'refresh_token' => $data['refresh_token'],
+            'expires_in' => $data['expires_in'] ?? 3600,
+            'expires' => $data['expires'] ?? null,
+            'scope' => explode(',', (string) ($data['scope'] ?? $config->scope())),
+            'metadata' => [
+                'member_id' => $data['member_id'] ?? null,
+                'client_endpoint' => $data['client_endpoint'] ?? null,
+                'server_endpoint' => $data['server_endpoint'] ?? null,
+            ],
+        ];
+    }
+
     public function refreshToken(Bitrix24Token $token): Bitrix24Token
     {
         try {
-            $config = config("bitrix24.connections.{$token->connection}", []);
-            $oauthServer = rtrim((string) ($config['oauth_server'] ?? DefaultOAuthServerUrl::default()), '/');
-
-            $response = Http::asForm()->timeout(config('bitrix24.api.timeout', 30))->post(
-                $oauthServer . '/oauth/token/',
-                [
-                    'grant_type' => 'refresh_token',
-                    'client_id' => $config['client_id'],
-                    'client_secret' => $config['client_secret'],
-                    'refresh_token' => $token->refresh_token,
-                ]
-            );
-
-            if ($response->failed()) {
-                throw new RuntimeException('Не удалось обновить токен Bitrix24: ' . $response->body());
-            }
-
-            $data = $response->json();
-
-            if (!isset($data['access_token'], $data['refresh_token'])) {
-                throw new RuntimeException('Ответ Bitrix24 не содержит токены.');
-            }
+            $config = ConnectionConfig::load($token->connection);
+            $data = $this->requestOAuthToken($config, [
+                'grant_type' => 'refresh_token',
+                'client_id' => $config->clientId(),
+                'client_secret' => $config->clientSecret(),
+                'refresh_token' => $token->refresh_token,
+            ]);
 
             $this->tokenRepository->update($token->id, [
                 'access_token' => $data['access_token'],
                 'refresh_token' => $data['refresh_token'],
                 'expires_in' => $data['expires_in'] ?? 3600,
                 'expires_at' => $this->resolveExpiresAt($data),
-                'domain' => $data['domain'] ?? $token->domain,
+                'domain' => Domain::normalize((string) ($data['domain'] ?? $token->domain)),
                 'is_active' => true,
             ]);
 
             $token->refresh();
-
             $this->cacheToken($token);
 
             return $token;
@@ -190,12 +169,6 @@ readonly class TokenManager
         }
     }
 
-    /**
-     * Отозвать токен.
-     *
-     * @param int $tokenId ID токена
-     * @return bool
-     */
     public function revokeToken(int $tokenId): bool
     {
         $token = $this->tokenRepository->find($tokenId);
@@ -214,30 +187,15 @@ readonly class TokenManager
     }
 
     /**
-     * Получить AuthToken для SDK.
-     *
-     * @param int|null $userId ID пользователя
-     * @param string $connection Название подключения
-     * @return AuthToken|null
      * @throws InvalidArgumentException
      */
     public function getAuthToken(?int $userId = null, string $connection = 'main'): ?AuthToken
     {
         $token = $this->getToken($userId, $connection);
 
-        if (!$token) {
-            return null;
-        }
-
-        return $this->toAuthToken($token);
+        return $token ? $this->toAuthToken($token) : null;
     }
 
-    /**
-     * Собрать AuthToken SDK из модели.
-     *
-     * @param Bitrix24Token $token Модель токена
-     * @return AuthToken
-     */
     public function toAuthToken(Bitrix24Token $token): AuthToken
     {
         return new AuthToken(
@@ -248,65 +206,63 @@ readonly class TokenManager
         );
     }
 
-    /**
-     * Получить профиль приложения для SDK.
-     *
-     * @param string $connection Название подключения
-     * @return ApplicationProfile
-     */
     public function getApplicationProfile(string $connection = 'main'): ApplicationProfile
     {
-        $config = config("bitrix24.connections.{$connection}", []);
+        $config = ConnectionConfig::load($connection);
 
         return new ApplicationProfile(
-            (string) $config['client_id'],
-            (string) $config['client_secret'],
-            Scope::initFromString((string) ($config['scope'] ?? ''))
+            $config->clientId(),
+            $config->clientSecret(),
+            Scope::initFromString($config->scope())
         );
     }
 
     /**
-     * Кешировать токен.
-     *
-     * @param Bitrix24Token $token Токен для кеширования
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
      */
+    private function requestOAuthToken(ConnectionConfig $config, array $params): array
+    {
+        $response = Http::asForm()
+            ->timeout((int) config('bitrix24.api.timeout', 30))
+            ->post($config->oauthTokenUrl(), $params);
+
+        if ($response->failed()) {
+            throw new OAuthException('Не удалось выполнить OAuth-запрос: ' . $response->body());
+        }
+
+        $data = $response->json();
+
+        if (!is_array($data) || !isset($data['access_token'], $data['refresh_token'])) {
+            throw new OAuthException('Ответ Bitrix24 не содержит токены: ' . $response->body());
+        }
+
+        return $data;
+    }
+
     private function cacheToken(Bitrix24Token $token): void
     {
-        $cacheKey = $this->getCacheKey($token->user_id, $token->connection);
-        $ttl = config('bitrix24.cache.ttl', 3600);
-
-        $this->cache->put($cacheKey, $token, $ttl);
+        $this->cache->put(
+            $this->getCacheKey($token->user_id, $token->connection),
+            $token,
+            (int) config('bitrix24.cache.ttl', 3600)
+        );
     }
 
-    /**
-     * Инвалидировать кеш токена.
-     *
-     * @param Bitrix24Token $token Токен для удаления из кеша
-     */
     private function invalidateCache(Bitrix24Token $token): void
     {
-        $cacheKey = $this->getCacheKey($token->user_id, $token->connection);
-        $this->cache->forget($cacheKey);
+        $this->cache->forget($this->getCacheKey($token->user_id, $token->connection));
     }
 
-    /**
-     * Получить ключ кеша для токена.
-     *
-     * @param int|null $userId ID пользователя
-     * @param string $connection Название подключения
-     * @return string
-     */
     private function getCacheKey(?int $userId, string $connection): string
     {
         $prefix = config('bitrix24.cache.prefix', 'bitrix24_tokens');
+
         return "{$prefix}:{$connection}:" . ($userId ?? 'guest');
     }
 
     /**
-     * Вычислить дату истечения токена.
-     *
-     * @param array $tokenData Данные ответа OAuth
-     * @return Carbon|null
+     * @param array<string, mixed> $tokenData
      */
     private function resolveExpiresAt(array $tokenData): ?Carbon
     {

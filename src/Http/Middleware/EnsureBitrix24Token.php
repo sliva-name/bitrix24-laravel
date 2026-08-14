@@ -4,26 +4,16 @@ declare(strict_types=1);
 
 namespace Leko\Bitrix24\Http\Middleware;
 
-use Leko\Bitrix24\Facades\Bitrix24;
 use Closure;
 use Illuminate\Http\Request;
+use Leko\Bitrix24\Facades\Bitrix24;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Middleware проверки токена Bitrix24
- *
- * Проверяет наличие валидного токена Bitrix24 у пользователя перед продолжением.
+ * Проверяет наличие валидного токена Bitrix24 у текущего пользователя.
  */
 class EnsureBitrix24Token
 {
-    /**
-     * Обработать входящий запрос.
-     *
-     * @param Request $request HTTP запрос
-     * @param Closure $next Следующий обработчик
-     * @param string $connection Название подключения
-     * @return Response
-     */
     public function handle(Request $request, Closure $next, string $connection = 'main'): Response
     {
         $userId = $request->user()?->id;
@@ -35,20 +25,15 @@ class EnsureBitrix24Token
             ], 401);
         }
 
-        $userId = (int) $userId;
+        $bitrix = Bitrix24::setConnection($connection)->setUserId((int) $userId);
 
-        $hasValidToken = Bitrix24::setConnection($connection)
-            ->hasValidToken($userId);
-
-        if (!$hasValidToken) {
+        if (!$bitrix->hasValidToken((int) $userId)) {
             return response()->json([
                 'error' => 'Требуется интеграция с Bitrix24',
                 'message' => 'Пожалуйста, сначала аутентифицируйтесь в Bitrix24',
                 'connection' => $connection,
             ], 403);
         }
-
-        Bitrix24::setUserId($userId)->setConnection($connection);
 
         return $next($request);
     }

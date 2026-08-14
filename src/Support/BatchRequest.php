@@ -7,41 +7,22 @@ namespace Leko\Bitrix24\Support;
 use Leko\Bitrix24\Clients\BaseClient;
 
 /**
- * Helper для пакетных запросов к Bitrix24 API
+ * Пакетные запросы к Bitrix24 REST API.
  */
 class BatchRequest
 {
     /**
-     * Запросы для batch выполнения.
-     *
-     * @var array<string, array{method: string, params: array}>
+     * @var array<string, array{method: string, params: array<string, mixed>}>
      */
-    protected array $commands = [];
+    private array $commands = [];
 
-    /**
-     * Клиент для выполнения запросов.
-     *
-     * @var BaseClient
-     */
-    protected BaseClient $client;
-
-    /**
-     * Создать новый batch request.
-     *
-     * @param BaseClient $client Клиент API
-     */
-    public function __construct(BaseClient $client)
-    {
-        $this->client = $client;
+    public function __construct(
+        private readonly BaseClient $client
+    ) {
     }
 
     /**
-     * Добавить команду в batch.
-     *
-     * @param string $id Уникальный ID команды
-     * @param string $method Метод API
-     * @param array $params Параметры
-     * @return self
+     * @param array<string, mixed> $params
      */
     public function add(string $id, string $method, array $params = []): self
     {
@@ -54,10 +35,7 @@ class BatchRequest
     }
 
     /**
-     * Добавить несколько команд.
-     *
-     * @param array $commands Массив команд
-     * @return self
+     * @param array<string|int, array{method: string, params?: array<string, mixed>}> $commands
      */
     public function addMany(array $commands): self
     {
@@ -69,9 +47,7 @@ class BatchRequest
     }
 
     /**
-     * Выполнить batch запрос.
-     *
-     * @return array
+     * @return array<mixed>
      */
     public function execute(): array
     {
@@ -80,6 +56,7 @@ class BatchRequest
         }
 
         $batchCommands = [];
+
         foreach ($this->commands as $id => $command) {
             $query = http_build_query($command['params']);
             $batchCommands[$id] = $query === ''
@@ -100,32 +77,18 @@ class BatchRequest
         return is_array($result) ? $result : [];
     }
 
-    /**
-     * Получить количество команд.
-     *
-     * @return int
-     */
     public function count(): int
     {
         return count($this->commands);
     }
 
-    /**
-     * Очистить команды.
-     *
-     * @return self
-     */
     public function clear(): self
     {
         $this->commands = [];
+
         return $this;
     }
 
-    /**
-     * Проверить наличие команд.
-     *
-     * @return bool
-     */
     public function isEmpty(): bool
     {
         return $this->commands === [];

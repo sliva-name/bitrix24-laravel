@@ -8,9 +8,6 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Выполнить миграцию.
-     */
     public function up(): void
     {
         Schema::create('bitrix24_webhooks', function (Blueprint $table) {
@@ -29,9 +26,6 @@ return new class extends Migration
         });
     }
 
-    /**
-     * Откатить миграцию.
-     */
     public function down(): void
     {
         Schema::dropIfExists('bitrix24_webhooks');

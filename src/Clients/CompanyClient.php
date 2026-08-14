@@ -6,107 +6,50 @@ namespace Leko\Bitrix24\Clients;
 
 use Bitrix24\SDK\Services\CRM\Company\Result\CompanyItemResult;
 use Leko\Bitrix24\Contracts\CompanyClientInterface;
-use Throwable;
 
 /**
- * Клиент компании для Bitrix24
- *
- * Предоставляет методы для работы с компании CRM.
+ * Клиент компаний Bitrix24.
  */
-class CompanyClient extends BaseClient implements CompanyClientInterface
+class CompanyClient extends CrmEntityClient implements CompanyClientInterface
 {
-    /**
-     * Получить список компании.
-     *
-     * @param array $filter Фильтры выборки
-     * @param array $select Список полей для выборки
-     * @param array $order Сортировка результатов
-     * @param int $start Смещение для пагинации
-     * @return CompanyItemResult[]
-     * @throws Throwable
-     */
+    protected function entity(): string
+    {
+        return 'company';
+    }
+
     public function list(array $filter = [], array $select = ['*'], array $order = ['ID' => 'DESC'], int $start = 0): array
     {
-        return $this->callCrmMethod('company', 'list', [
-            'filter' => $filter,
-            'select' => $select,
-            'order' => $order,
-            'start' => $start,
-        ], fn() => $this->serviceBuilder->getCRMScope()->company()->list($order, $filter, $select, $start)->getCompanies()) ?? [];
+        return $this->listEntities(
+            $filter,
+            $select,
+            $order,
+            $start,
+            fn () => $this->serviceBuilder->getCRMScope()->company()->list($order, $filter, $select, $start)->getCompanies()
+        );
     }
 
-    /**
-     * Получить компанию по ID.
-     *
-     * @param int $id ID записи
-     * @return CompanyItemResult
-     * @throws Throwable
-     */
     public function get(int $id): CompanyItemResult
     {
-        return $this->callCrmMethod('company', 'get', [
-            'id' => $id
-        ], fn() => $this->serviceBuilder->getCRMScope()->company()->get($id)->company());
+        return $this->getEntity($id, fn () => $this->serviceBuilder->getCRMScope()->company()->get($id)->company());
     }
 
-    /**
-     * Добавить компанию.
-     *
-     * @param array $fields Поля новой записи
-     * @return int
-     * @throws Throwable
-     */
     public function add(array $fields): int
     {
-        return $this->callCrmMethod('company', 'add', [
-            'fields' => $fields
-        ], fn() => $this->serviceBuilder->getCRMScope()->company()->add($fields)->getId());
+        return $this->addEntity($fields, fn () => $this->serviceBuilder->getCRMScope()->company()->add($fields)->getId());
     }
 
-    /**
-     * Обновить компанию.
-     *
-     * @param int $id ID записи
-     * @param array $fields Обновляемые поля
-     * @return bool
-     * @throws Throwable
-     */
     public function update(int $id, array $fields): bool
     {
-        $result = $this->callCrmMethod('company', 'update', [
-            'id' => $id,
-            'fields' => $fields
-        ], fn() => $this->serviceBuilder->getCRMScope()->company()->update($id, $fields)->isSuccess());
-        
-        return $result === true;
+        return $this->updateEntity($id, $fields, fn () => $this->serviceBuilder->getCRMScope()->company()->update($id, $fields)->isSuccess());
     }
 
-    /**
-     * Удалить компанию.
-     *
-     * @param int $id ID записи
-     * @return bool
-     * @throws Throwable
-     */
     public function delete(int $id): bool
     {
-        $result = $this->callCrmMethod('company', 'delete', [
-            'id' => $id
-        ], fn() => $this->serviceBuilder->getCRMScope()->company()->delete($id)->isSuccess());
-        
-        return $result === true;
+        return $this->deleteEntity($id, fn () => $this->serviceBuilder->getCRMScope()->company()->delete($id)->isSuccess());
     }
 
-    /**
-     * Получить поля записи.
-     *
-     * @return array
-     * @throws Throwable
-     */
     public function fields(): array
     {
-        return $this->callCrmMethod('company', 'fields', [], 
-            fn() => $this->serviceBuilder->getCRMScope()->company()->fields()->getFieldsDescription()
-        ) ?? [];
+        return $this->entityFields(fn () => $this->serviceBuilder->getCRMScope()->company()->fields()->getFieldsDescription());
     }
 }

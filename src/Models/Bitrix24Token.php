@@ -10,9 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Модель токена Bitrix24
- *
- * Хранит OAuth токены для интеграции с Bitrix24.
+ * OAuth-токен Bitrix24.
  *
  * @property int $id
  * @property string $connection
@@ -27,9 +25,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property bool $is_active
  * @property Carbon $created_at
  * @property Carbon $updated_at
+ *
+ * @method static Builder<static> active()
+ * @method static Builder<static> valid()
+ * @method static Builder<static> forConnection(string $connection)
+ * @method static Builder<static> forDomain(string $domain)
  */
 class Bitrix24Token extends Model
 {
+    public const EXPIRING_SOON_MINUTES = 5;
+
     protected $table = 'bitrix24_tokens';
 
     protected $fillable = [
@@ -59,11 +64,6 @@ class Bitrix24Token extends Model
         'refresh_token',
     ];
 
-    /**
-     * Получить пользователя, владеющего токеном.
-     *
-     * @return BelongsTo
-     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(
@@ -71,79 +71,39 @@ class Bitrix24Token extends Model
         );
     }
 
-    /**
-     * Проверить истек ли токен.
-     *
-     * @return bool
-     */
     public function isExpired(): bool
     {
-        if (!$this->expires_at) {
-            return false;
-        }
-
-        return $this->expires_at->isPast();
+        return $this->expires_at?->isPast() ?? false;
     }
 
-    /**
-     * Проверить скоро ли истечет токен (в течение 5 минут).
-     *
-     * @return bool
-     */
-    public function isExpiringSoon(int $minutes = 5): bool
+    public function isExpiringSoon(int $minutes = self::EXPIRING_SOON_MINUTES): bool
     {
-        if (!$this->expires_at) {
+        if ($this->expires_at === null) {
             return false;
         }
 
-        return $this->expires_at->getTimestamp() <= Carbon::now()->copy()->addMinutes($minutes)->getTimestamp();
+        return $this->expires_at->lessThanOrEqualTo(now()->addMinutes($minutes));
     }
 
-    /**
-     * Scope для активных токенов.
-     *
-     * @param Builder $query Запрос
-     * @return Builder
-     */
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
     }
 
-    /**
-     * Scope для токенов конкретного подключения.
-     *
-     * @param Builder $query Запрос
-     * @param string $connection Название подключения
-     * @return Builder
-     */
     public function scopeForConnection(Builder $query, string $connection): Builder
     {
         return $query->where('connection', $connection);
     }
 
-    /**
-     * Scope для токенов конкретного домена.
-     *
-     * @param Builder $query Запрос
-     * @param string $domain Домен Bitrix24
-     * @return Builder
-     */
     public function scopeForDomain(Builder $query, string $domain): Builder
     {
         return $query->where('domain', $domain);
     }
 
-    /**
-     * Scope для валидных (активных и неистекших) токенов.
-     *
-     * @param Builder $query Запрос
-     * @return Builder
-     */
     public function scopeValid(Builder $query): Builder
     {
         return $query->active()
-            ->where(function ($q) {
+            ->where(function (Builder $q): void {
                 $q->whereNull('expires_at')
                     ->orWhere('expires_at', '>', now());
             });
