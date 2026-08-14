@@ -48,7 +48,11 @@ readonly class TokenManager
             try {
                 $token = $this->refreshToken($token);
             } catch (Throwable) {
-                return null;
+                $token = $this->tokenRepository->findActiveToken($userId, $connection);
+
+                if ($token === null || $token->isExpired()) {
+                    return null;
+                }
             }
         }
 
@@ -139,13 +143,15 @@ readonly class TokenManager
 
     public function refreshToken(Bitrix24Token $token): Bitrix24Token
     {
+        $originalRefreshToken = (string) $token->refresh_token;
+
         try {
             $config = ConnectionConfig::load($token->connection);
             $data = $this->requestOAuthToken($config, [
                 'grant_type' => 'refresh_token',
                 'client_id' => $config->clientId(),
                 'client_secret' => $config->clientSecret(),
-                'refresh_token' => $token->refresh_token,
+                'refresh_token' => $originalRefreshToken,
             ]);
 
             $this->tokenRepository->update($token->id, [
@@ -162,8 +168,7 @@ readonly class TokenManager
 
             return $token;
         } catch (Throwable $e) {
-            $this->tokenRepository->deactivate($token->id);
-            $this->invalidateCache($token);
+            $this->invalidateAfterFailedRefresh($token, $originalRefreshToken, $e);
 
             throw $e;
         }
@@ -238,17 +243,59 @@ readonly class TokenManager
             return $response;
         }, $delay);
 
+        $data = $response->json();
+        $oauthError = is_array($data) ? ($data['error'] ?? null) : null;
+        $permanent = $response->clientError() || $this->isPermanentOAuthError($oauthError);
+
         if ($response->failed()) {
-            throw new OAuthException('Не удалось выполнить OAuth-запрос: ' . $response->body());
+            throw new OAuthException(
+                'Не удалось выполнить OAuth-запрос: ' . $response->body(),
+                permanent: $permanent
+            );
         }
 
-        $data = $response->json();
-
         if (!is_array($data) || !isset($data['access_token'], $data['refresh_token'])) {
-            throw new OAuthException('Ответ Bitrix24 не содержит токены: ' . $response->body());
+            throw new OAuthException(
+                'Ответ Bitrix24 не содержит токены: ' . $response->body(),
+                permanent: $permanent
+            );
         }
 
         return $data;
+    }
+
+    /**
+     * Deactivate only when the authorization server rejected this refresh token,
+     * and only if another process has not already stored rotated credentials.
+     */
+    private function invalidateAfterFailedRefresh(
+        Bitrix24Token $token,
+        string $originalRefreshToken,
+        Throwable $e
+    ): void {
+        if (!$e instanceof OAuthException || !$e->permanent) {
+            return;
+        }
+
+        $current = $this->tokenRepository->find($token->id);
+
+        if ($current === null || $current->refresh_token !== $originalRefreshToken) {
+            return;
+        }
+
+        $this->tokenRepository->deactivate($token->id);
+        $this->invalidateCache($token);
+    }
+
+    private function isPermanentOAuthError(mixed $error): bool
+    {
+        return is_string($error) && in_array($error, [
+            'invalid_grant',
+            'invalid_token',
+            'invalid_client',
+            'unauthorized_client',
+            'unsupported_grant_type',
+        ], true);
     }
 
     private function cacheToken(Bitrix24Token $token): void
