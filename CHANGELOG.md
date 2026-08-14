@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `TokenManager::exchangeAuthorizationCode()` for the OAuth callback flow
 - Unit and integration tests for tokens, OAuth, clients, batch requests and config
 
+### Docs
+- README aligned with the published config, client interfaces, exceptions and `composer test`
+
 ### Fixed
 - Refreshing a token no longer stores an un-normalized portal domain
 - `HasCaching::flushCache()` no longer throws on cache stores without tag support

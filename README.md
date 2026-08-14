@@ -67,11 +67,10 @@
 - ✅ Полная поддержка **Dependency Injection**
 
 ### 📦 Дополнительно
-- ✅ Готовые контроллеры и маршруты
 - ✅ Middleware для защиты роутов
-- ✅ API Resources для JSON responses
-- ✅ Логирование всех операций
-- ✅ Обработка ошибок и retry logic
+- ✅ API Resources для JSON-ответов
+- ✅ Логирование API-вызовов
+- ✅ Типизированные исключения (`AuthenticationException`, `OAuthException`, …)
 - ✅ Подробная документация с примерами
 
 ---
@@ -206,50 +205,36 @@ Bitrix24::leads()->delete($leadId);
 
 ```php
 return [
-    // Тип аутентификации: 'oauth' или 'webhook'
-    'default_connection' => env('BITRIX24_DEFAULT_CONNECTION', 'main'),
+    'default' => env('BITRIX24_DEFAULT_CONNECTION', 'main'),
 
     'connections' => [
         'main' => [
             'type' => env('BITRIX24_AUTH_TYPE', 'oauth'),
             'domain' => env('BITRIX24_DOMAIN'),
-            
-            // OAuth настройки
             'client_id' => env('BITRIX24_CLIENT_ID'),
             'client_secret' => env('BITRIX24_CLIENT_SECRET'),
             'redirect_uri' => env('BITRIX24_REDIRECT_URI'),
-            
-            // Webhook настройки
             'webhook_url' => env('BITRIX24_WEBHOOK_URL'),
-        ],
-        
-        // Дополнительные подключения
-        'secondary' => [
-            // ...
+            'scope' => env('BITRIX24_SCOPE', 'crm,task,user,lists'),
+            'oauth_server' => env('BITRIX24_OAUTH_SERVER', 'https://oauth.bitrix.info/'),
         ],
     ],
 
-    // Хранение токенов
-    'token_storage' => env('BITRIX24_TOKEN_STORAGE', 'database'),
-    
-    // Кеширование
     'cache' => [
-        'enabled' => env('BITRIX24_CACHE_ENABLED', true),
-        'store' => env('BITRIX24_CACHE_STORE', 'redis'),
-        'ttl' => env('BITRIX24_CACHE_TTL', 3600),
+        'store' => env('BITRIX24_CACHE_STORE'),
+        'prefix' => 'bitrix24_tokens',
+        'ttl' => 3600,
     ],
 
-    // Логирование
     'logging' => [
         'enabled' => env('BITRIX24_LOGGING_ENABLED', false),
         'channel' => env('BITRIX24_LOG_CHANNEL', 'daily'),
     ],
 
-    // Таймауты и retry
     'api' => [
         'timeout' => env('BITRIX24_API_TIMEOUT', 30),
-        'retry_times' => env('BITRIX24_RETRY_TIMES', 3),
-        'retry_sleep' => env('BITRIX24_RETRY_SLEEP', 1000),
+        'retry_attempts' => env('BITRIX24_API_RETRY_ATTEMPTS', 3),
+        'retry_delay' => env('BITRIX24_API_RETRY_DELAY', 1000),
     ],
 ];
 ```
@@ -556,8 +541,8 @@ class SalesService
         $lead = $this->leads->get($leadId);
         
         return $this->deals->add([
-            'TITLE' => $lead['TITLE'],
-            'CONTACT_ID' => $lead['CONTACT_ID'],
+            'TITLE' => $lead->TITLE,
+            'CONTACT_ID' => $lead->CONTACT_ID,
         ]);
     }
 }
@@ -571,6 +556,8 @@ $service = app(SalesService::class);
 ## 🎨 Расширение пакета
 
 ### Создание кастомного клиента
+
+Класс должен наследовать `BaseClient` (для новой CRM-сущности удобнее `CrmEntityClient`):
 
 ```php
 namespace App\Services\Bitrix24;
@@ -606,6 +593,7 @@ public function boot(): void
 // Использование
 $report = Bitrix24::client('analytics')->getSalesReport('month');
 $leads = Bitrix24::leads(); // Вернёт MyCustomLeadClient
+$same = Bitrix24::client('leads'); // Встроенный или зарегистрированный клиент
 ```
 
 📖 **Подробнее:** [EXTENSIBILITY.md](EXTENSIBILITY.md), [ADVANCED_USAGE.md](ADVANCED_USAGE.md)
@@ -625,6 +613,8 @@ Bitrix24::tasks()      // TaskClientInterface
 Bitrix24::users()      // UserClientInterface
 Bitrix24::lists()      // ListClientInterface
 Bitrix24::crm()        // CrmClientInterface
+Bitrix24::client(string $name) // Встроенный или кастомный BaseClient
+Bitrix24::sdk()        // Официальный ServiceBuilder
 
 // Утилиты
 Bitrix24::setConnection(string $name)
@@ -632,7 +622,6 @@ Bitrix24::setUserId(?int $id)
 Bitrix24::getAuthorizationUrl(array $scopes = [])
 Bitrix24::handleCallback(string $code)
 Bitrix24::hasValidToken(?int $userId = null)
-Bitrix24::client(string $name) // Кастомный клиент
 ```
 
 ### Методы клиентов
@@ -716,18 +705,7 @@ protected $middlewareAliases = [
 ## 🧪 Тестирование
 
 ```bash
-# Запуск всех тестов
 composer test
-
-# С покрытием кода
-composer test:coverage
-
-# Статический анализ
-composer phpstan
-
-# Code style
-composer cs:check
-composer cs:fix
 ```
 
 ### Моки для тестирования
@@ -753,15 +731,18 @@ public function test_lead_creation(): void
 
 ## 🔄 Миграция
 
-### С версии 1.x на 2.x
+### С версии 1.1 на 1.2
 
-См. [MIGRATION_GUIDE.md](MIGRATION_GUIDE.md) для подробных инструкций.
+См. [CHANGELOG.md](CHANGELOG.md). Публичный API расширения сохранён (`registerClient`, макросы, интерфейсы клиентов, `BaseClient` helpers).
 
-Основные изменения:
-- Добавлены интерфейсы для всех клиентов
-- Новая система событий
-- Макросы и traits
-- Batch операции
+Обратите внимание:
+- `Bitrix24ServiceInterface` возвращает интерфейсы клиентов, а не конкретные классы
+- OAuth и отсутствие токена бросают `Leko\Bitrix24\Exceptions\*` (наследники `RuntimeException`)
+- `Bitrix24::client('leads')` находит и встроенные клиенты
+
+### С версии 1.x на более новые
+
+См. [MIGRATION_GUIDE.md](MIGRATION_GUIDE.md) и [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -787,9 +768,14 @@ $leads2 = Bitrix24::setConnection('account2')->leads()->list();
 <summary><strong>Как обработать ошибки API?</strong></summary>
 
 ```php
+use Leko\Bitrix24\Exceptions\AuthenticationException;
+use Leko\Bitrix24\Exceptions\Bitrix24Exception;
+
 try {
     $leads = Bitrix24::leads()->list();
-} catch (\Throwable $e) {
+} catch (AuthenticationException $e) {
+    return redirect(Bitrix24::getAuthorizationUrl());
+} catch (Bitrix24Exception $e) {
     Log::error('Bitrix24 Error', [
         'message' => $e->getMessage(),
         'trace' => $e->getTraceAsString(),
