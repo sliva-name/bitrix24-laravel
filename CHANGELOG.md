@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-08-14
+
 ### Changed
 - Deduplicated CRM entity clients through a shared `CrmEntityClient` base
 - Unified OAuth token exchange and refresh through `TokenManager`
@@ -21,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Bitrix24Service::flushCustomClients()` and `client()` lookup for built-in clients
 - `TokenManager::exchangeAuthorizationCode()` for the OAuth callback flow
 - Unit and integration tests for tokens, OAuth, clients, batch requests and config
+
+### Docs
+- README aligned with the published config, client interfaces, exceptions and `composer test`
 
 ### Fixed
 - Refreshing a token no longer stores an un-normalized portal domain
