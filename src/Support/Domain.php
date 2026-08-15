@@ -46,6 +46,6 @@ final class Domain
     {
         $host = strtolower(self::normalize($domain));
 
-        return $host === 'oauth.bitrix.info' || str_starts_with($host, 'oauth.bitrix.');
+        return (bool) preg_match('/^oauth\.bitrix(24)?\./', $host);
     }
 }
