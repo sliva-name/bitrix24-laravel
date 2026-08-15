@@ -67,7 +67,7 @@ readonly class TokenManager
         $token = $this->tokenRepository->upsert([
             'connection' => $connection,
             'user_id' => $userId,
-            'domain' => Domain::normalize((string) $tokenData['domain']),
+            'domain' => $this->resolvePortalDomain($tokenData),
             'access_token' => $tokenData['access_token'],
             'refresh_token' => $tokenData['refresh_token'],
             'expires_in' => $tokenData['expires_in'] ?? 3600,
@@ -94,6 +94,7 @@ readonly class TokenManager
 
         return $this->storeToken([
             'domain' => $renewed->domain,
+            'client_endpoint' => $renewed->clientEndpoint,
             'access_token' => $authToken->accessToken,
             'refresh_token' => $refreshToken,
             'expires_in' => $authToken->expiresIn ?? 3600,
@@ -123,12 +124,13 @@ readonly class TokenManager
         ]);
 
         return [
-            'domain' => Domain::normalize((string) ($data['domain'] ?? $config->domain())),
+            'domain' => $this->resolvePortalDomain($data, $config->domain()),
             'access_token' => $data['access_token'],
             'refresh_token' => $data['refresh_token'],
             'expires_in' => $data['expires_in'] ?? 3600,
             'expires' => $data['expires'] ?? null,
             'scope' => explode(',', (string) ($data['scope'] ?? $config->scope())),
+            'client_endpoint' => $data['client_endpoint'] ?? null,
             'metadata' => [
                 'member_id' => $data['member_id'] ?? null,
                 'client_endpoint' => $data['client_endpoint'] ?? null,
@@ -153,7 +155,7 @@ readonly class TokenManager
                 'refresh_token' => $data['refresh_token'],
                 'expires_in' => $data['expires_in'] ?? 3600,
                 'expires_at' => $this->resolveExpiresAt($data),
-                'domain' => Domain::normalize((string) ($data['domain'] ?? $token->domain)),
+                'domain' => $this->resolvePortalDomain($data, $token->domain),
                 'is_active' => true,
             ]);
 
@@ -270,6 +272,31 @@ readonly class TokenManager
         $prefix = config('bitrix24.cache.prefix', 'bitrix24_tokens');
 
         return "{$prefix}:{$connection}:" . ($userId ?? 'guest');
+    }
+
+    /**
+     * Portal host for REST calls. Bitrix24's oauth/token JSON sets `domain`
+     * to the authorization server (oauth.bitrix.info); the portal is in
+     * `client_endpoint`.
+     *
+     * @param array<string, mixed> $tokenData
+     */
+    private function resolvePortalDomain(array $tokenData, ?string $fallback = null): string
+    {
+        $endpoint = $tokenData['client_endpoint']
+            ?? (is_array($tokenData['metadata'] ?? null) ? ($tokenData['metadata']['client_endpoint'] ?? null) : null);
+
+        $fromEndpoint = Domain::fromClientEndpoint(is_string($endpoint) ? $endpoint : null);
+        if ($fromEndpoint !== null) {
+            return $fromEndpoint;
+        }
+
+        $domain = Domain::normalize((string) ($tokenData['domain'] ?? ''));
+        if ($domain !== '' && !Domain::isAuthorizationServer($domain)) {
+            return $domain;
+        }
+
+        return Domain::normalize((string) ($fallback ?? ''));
     }
 
     /**

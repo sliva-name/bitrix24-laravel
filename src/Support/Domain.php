@@ -19,4 +19,33 @@ final class Domain
 
         return rtrim($domain, '/');
     }
+
+    /**
+     * Хост портала из client_endpoint OAuth-ответа (`https://portal.bitrix24.ru/rest/`).
+     */
+    public static function fromClientEndpoint(?string $endpoint): ?string
+    {
+        if ($endpoint === null || trim($endpoint) === '') {
+            return null;
+        }
+
+        $host = parse_url($endpoint, PHP_URL_HOST);
+        if (!is_string($host) || $host === '') {
+            return null;
+        }
+
+        $normalized = self::normalize($host);
+
+        return $normalized === '' ? null : $normalized;
+    }
+
+    /**
+     * Поле `domain` в JSON oauth/token — это сервер авторизации, не портал.
+     */
+    public static function isAuthorizationServer(string $domain): bool
+    {
+        $host = strtolower(self::normalize($domain));
+
+        return $host === 'oauth.bitrix.info' || str_starts_with($host, 'oauth.bitrix.');
+    }
 }
