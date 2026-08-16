@@ -100,6 +100,114 @@ class TokenManagerTest extends TestCase
         $this->assertFalse($token->fresh()->is_active);
     }
 
+    public function test_it_keeps_token_active_when_refresh_hits_server_error(): void
+    {
+        $token = $this->manager->storeToken([
+            'domain' => 'portal.bitrix24.ru',
+            'access_token' => 'old-access',
+            'refresh_token' => 'old-refresh',
+            'expires' => Carbon::now()->subHour()->getTimestamp(),
+        ], 6);
+
+        config()->set('bitrix24.api.retry_attempts', 1);
+        config()->set('bitrix24.api.retry_delay', 0);
+
+        Http::fake([
+            'https://oauth.bitrix.info/oauth/token/' => Http::response(['error' => 'temporarily_unavailable'], 503),
+        ]);
+
+        $this->assertNull($this->manager->getToken(6));
+        $this->assertTrue($token->fresh()->is_active);
+        $this->assertSame('old-refresh', $token->fresh()->refresh_token);
+    }
+
+    public function test_it_returns_still_valid_token_when_proactive_refresh_fails_transiently(): void
+    {
+        $token = $this->manager->storeToken([
+            'domain' => 'portal.bitrix24.ru',
+            'access_token' => 'old-access',
+            'refresh_token' => 'old-refresh',
+            'expires' => Carbon::now()->addMinutes(2)->getTimestamp(),
+        ], 8);
+
+        config()->set('bitrix24.api.retry_attempts', 1);
+        config()->set('bitrix24.api.retry_delay', 0);
+
+        Http::fake([
+            'https://oauth.bitrix.info/oauth/token/' => Http::response(['error' => 'temporarily_unavailable'], 503),
+        ]);
+
+        $returned = $this->manager->getToken(8);
+
+        $this->assertNotNull($returned);
+        $this->assertSame($token->id, $returned->id);
+        $this->assertSame('old-access', $returned->access_token);
+        $this->assertTrue($returned->fresh()->is_active);
+    }
+
+    public function test_it_does_not_deactivate_when_concurrent_refresh_already_rotated_token(): void
+    {
+        $token = $this->manager->storeToken([
+            'domain' => 'portal.bitrix24.ru',
+            'access_token' => 'old-access',
+            'refresh_token' => 'old-refresh',
+            'expires' => Carbon::now()->subHour()->getTimestamp(),
+        ], 11);
+
+        $stale = Bitrix24Token::query()->findOrFail($token->id);
+
+        Bitrix24Token::query()->whereKey($token->id)->update([
+            'access_token' => 'rotated-access',
+            'refresh_token' => 'rotated-refresh',
+            'expires_at' => Carbon::now()->addHour(),
+            'is_active' => true,
+        ]);
+
+        Http::fake([
+            'https://oauth.bitrix.info/oauth/token/' => Http::response(['error' => 'invalid_grant'], 400),
+        ]);
+
+        try {
+            $this->manager->refreshToken($stale);
+            $this->fail('Expected OAuthException was not thrown');
+        } catch (OAuthException $exception) {
+            $this->assertTrue($exception->permanent);
+        }
+
+        $fresh = $token->fresh();
+        $this->assertTrue($fresh->is_active);
+        $this->assertSame('rotated-access', $fresh->access_token);
+        $this->assertSame('rotated-refresh', $fresh->refresh_token);
+    }
+
+    public function test_it_returns_token_rotated_by_a_concurrent_refresh(): void
+    {
+        $token = $this->manager->storeToken([
+            'domain' => 'portal.bitrix24.ru',
+            'access_token' => 'old-access',
+            'refresh_token' => 'old-refresh',
+            'expires' => Carbon::now()->subHour()->getTimestamp(),
+        ], 12);
+
+        Http::fake(function () use ($token) {
+            Bitrix24Token::query()->whereKey($token->id)->update([
+                'access_token' => 'rotated-access',
+                'refresh_token' => 'rotated-refresh',
+                'expires_at' => Carbon::now()->addHour(),
+                'is_active' => true,
+            ]);
+
+            return Http::response(['error' => 'invalid_grant'], 400);
+        });
+
+        $returned = $this->manager->getToken(12);
+
+        $this->assertNotNull($returned);
+        $this->assertSame($token->id, $returned->id);
+        $this->assertSame('rotated-access', $returned->access_token);
+        $this->assertTrue($returned->fresh()->is_active);
+    }
+
     public function test_it_retries_oauth_on_server_errors(): void
     {
         Http::fake([
