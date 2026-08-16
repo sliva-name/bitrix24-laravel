@@ -57,6 +57,84 @@ class TokenManagerTest extends TestCase
         $this->assertSame('member-1', $payload['metadata']['member_id']);
     }
 
+    public function test_it_uses_client_endpoint_when_oauth_domain_is_the_authorization_server(): void
+    {
+        Http::fake([
+            'https://oauth.bitrix.info/oauth/token/' => Http::response([
+                'access_token' => 'new-access',
+                'refresh_token' => 'new-refresh',
+                'expires_in' => 1800,
+                'domain' => 'oauth.bitrix.info',
+                'client_endpoint' => 'https://portal.bitrix24.ru/rest/',
+                'server_endpoint' => 'https://oauth.bitrix.info/rest/',
+                'scope' => 'crm,user',
+                'member_id' => 'member-1',
+            ]),
+        ]);
+
+        $payload = $this->manager->exchangeAuthorizationCode('auth-code');
+
+        $this->assertSame('portal.bitrix24.ru', $payload['domain']);
+
+        $token = $this->manager->storeToken($payload, 2);
+
+        $this->assertSame('portal.bitrix24.ru', $token->domain);
+        $this->assertSame('portal.bitrix24.ru', $this->manager->getToken(2)?->domain);
+    }
+
+    public function test_it_does_not_overwrite_portal_domain_when_refresh_returns_oauth_server_domain(): void
+    {
+        $token = $this->manager->storeToken([
+            'domain' => 'portal.bitrix24.ru',
+            'access_token' => 'old-access',
+            'refresh_token' => 'old-refresh',
+            'expires' => Carbon::now()->subHour()->getTimestamp(),
+        ], 5);
+
+        Http::fake([
+            'https://oauth.bitrix.info/oauth/token/' => Http::response([
+                'access_token' => 'fresh-access',
+                'refresh_token' => 'fresh-refresh',
+                'expires_in' => 3600,
+                'domain' => 'oauth.bitrix.info',
+                'client_endpoint' => 'https://portal.bitrix24.ru/rest/',
+                'server_endpoint' => 'https://oauth.bitrix.info/rest/',
+            ]),
+        ]);
+
+        $refreshed = $this->manager->getToken(5);
+
+        $this->assertNotNull($refreshed);
+        $this->assertSame($token->id, $refreshed->id);
+        $this->assertSame('fresh-access', $refreshed->access_token);
+        $this->assertSame('portal.bitrix24.ru', $refreshed->domain);
+        $this->assertSame('portal.bitrix24.ru', $token->fresh()->domain);
+    }
+
+    public function test_it_keeps_existing_portal_domain_when_refresh_omits_client_endpoint(): void
+    {
+        $this->manager->storeToken([
+            'domain' => 'portal.bitrix24.ru',
+            'access_token' => 'old-access',
+            'refresh_token' => 'old-refresh',
+            'expires' => Carbon::now()->subHour()->getTimestamp(),
+        ], 13);
+
+        Http::fake([
+            'https://oauth.bitrix.info/oauth/token/' => Http::response([
+                'access_token' => 'fresh-access',
+                'refresh_token' => 'fresh-refresh',
+                'expires_in' => 3600,
+                'domain' => 'oauth.bitrix.info',
+            ]),
+        ]);
+
+        $refreshed = $this->manager->getToken(13);
+
+        $this->assertNotNull($refreshed);
+        $this->assertSame('portal.bitrix24.ru', $refreshed->domain);
+    }
+
     public function test_it_refreshes_an_expired_token(): void
     {
         $token = $this->manager->storeToken([
