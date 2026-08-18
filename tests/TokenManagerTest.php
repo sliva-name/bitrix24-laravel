@@ -199,6 +199,52 @@ class TokenManagerTest extends TestCase
         $this->assertSame('old-refresh', $token->fresh()->refresh_token);
     }
 
+    public function test_it_keeps_token_active_when_refresh_hits_rate_limit(): void
+    {
+        $token = $this->manager->storeToken([
+            'domain' => 'portal.bitrix24.ru',
+            'access_token' => 'old-access',
+            'refresh_token' => 'old-refresh',
+            'expires' => Carbon::now()->subHour()->getTimestamp(),
+        ], 14);
+
+        config()->set('bitrix24.api.retry_attempts', 1);
+        config()->set('bitrix24.api.retry_delay', 0);
+
+        Http::fake([
+            'https://oauth.bitrix.info/oauth/token/' => Http::response(['error' => 'temporarily_unavailable'], 429),
+        ]);
+
+        $this->assertNull($this->manager->getToken(14));
+        $this->assertTrue($token->fresh()->is_active);
+        $this->assertSame('old-refresh', $token->fresh()->refresh_token);
+    }
+
+    public function test_it_keeps_still_valid_token_when_proactive_refresh_hits_forbidden(): void
+    {
+        $token = $this->manager->storeToken([
+            'domain' => 'portal.bitrix24.ru',
+            'access_token' => 'old-access',
+            'refresh_token' => 'old-refresh',
+            'expires' => Carbon::now()->addMinutes(2)->getTimestamp(),
+        ], 15);
+
+        config()->set('bitrix24.api.retry_attempts', 1);
+        config()->set('bitrix24.api.retry_delay', 0);
+
+        Http::fake([
+            'https://oauth.bitrix.info/oauth/token/' => Http::response('error code: 1020', 403),
+        ]);
+
+        $returned = $this->manager->getToken(15);
+
+        $this->assertNotNull($returned);
+        $this->assertSame($token->id, $returned->id);
+        $this->assertSame('old-access', $returned->access_token);
+        $this->assertTrue($returned->fresh()->is_active);
+        $this->assertSame('old-refresh', $returned->fresh()->refresh_token);
+    }
+
     public function test_it_returns_still_valid_token_when_proactive_refresh_fails_transiently(): void
     {
         $token = $this->manager->storeToken([

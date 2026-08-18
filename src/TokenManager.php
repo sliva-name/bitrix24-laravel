@@ -247,7 +247,7 @@ readonly class TokenManager
 
         $data = $response->json();
         $oauthError = is_array($data) ? ($data['error'] ?? null) : null;
-        $permanent = $response->clientError() || $this->isPermanentOAuthError($oauthError);
+        $permanent = $this->isPermanentOAuthError($oauthError);
 
         if ($response->failed()) {
             throw new OAuthException(
