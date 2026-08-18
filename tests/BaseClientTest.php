@@ -65,6 +65,17 @@ class BaseClientTest extends TestCase
         $this->assertNull($client->integer('nope'));
         $this->assertSame(['a' => 1], $client->arrayValue(['a' => 1]));
         $this->assertSame([], $client->arrayValue('x'));
+
+        // Official SDK wraps scalar REST results as a single-element list.
+        $this->assertSame(42, $client->integer([42]));
+        $this->assertSame(15, $client->integer(['15']));
+        $this->assertTrue($client->success([true]));
+        $this->assertTrue($client->success([1]));
+        $this->assertTrue($client->success(['1']));
+        $this->assertFalse($client->success([false]));
+        $this->assertNull($client->integer([['ID' => 42]]));
+        $this->assertNull($client->integer(['ID' => 42]));
+        $this->assertFalse($client->success(['ID' => 1]));
     }
 
     public function test_build_params_skips_empty_and_conditional_values(): void

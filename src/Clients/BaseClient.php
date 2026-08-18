@@ -140,15 +140,36 @@ abstract class BaseClient implements ClientInterface
 
     /**
      * Bitrix24 REST часто возвращает успех как true, 1 или "1".
+     *
+     * The official SDK wraps any non-array `result` as `[value]`, so
+     * `crm.*.add` → `[123]` and `crm.*.update` → `[true]`.
      */
     protected function isSuccessful(mixed $result): bool
     {
+        $result = $this->unwrapSdkScalar($result);
+
         return $result === true || $result === 1 || $result === '1';
     }
 
     protected function asInt(mixed $result): ?int
     {
+        $result = $this->unwrapSdkScalar($result);
+
         return is_numeric($result) ? (int) $result : null;
+    }
+
+    /**
+     * Undo Response::getResponseData() wrapping a scalar REST result as a list.
+     */
+    protected function unwrapSdkScalar(mixed $result): mixed
+    {
+        if (!is_array($result) || count($result) !== 1 || !array_key_exists(0, $result)) {
+            return $result;
+        }
+
+        $value = $result[0];
+
+        return is_scalar($value) || $value === null ? $value : $result;
     }
 
     /**
