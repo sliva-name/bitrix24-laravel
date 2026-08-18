@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Leko\Bitrix24\Tests;
 
+use Bitrix24\SDK\Core\Response\DTO\ResponseData;
+use Bitrix24\SDK\Core\Response\Response;
 use Illuminate\Support\Facades\Event;
 use Leko\Bitrix24\Clients\CrmClient;
 use Leko\Bitrix24\Clients\ListClient;
@@ -46,10 +48,10 @@ class CrmClientTest extends TestCase
     private function builderReturning(array $result): object
     {
         $client = TestClient::fake();
-        $responseData = Mockery::mock();
+        $responseData = Mockery::mock(ResponseData::class);
         $responseData->shouldReceive('getResult')->andReturn($result);
 
-        $response = Mockery::mock();
+        $response = Mockery::mock(Response::class);
         $response->shouldReceive('getResponseData')->andReturn($responseData);
 
         $client->getServiceBuilder()->core
