@@ -199,6 +199,66 @@ class TokenManagerTest extends TestCase
         $this->assertSame('old-refresh', $token->fresh()->refresh_token);
     }
 
+    public function test_it_keeps_token_active_when_refresh_fails_with_invalid_client(): void
+    {
+        $token = $this->manager->storeToken([
+            'domain' => 'portal.bitrix24.ru',
+            'access_token' => 'old-access',
+            'refresh_token' => 'old-refresh',
+            'expires' => Carbon::now()->subHour()->getTimestamp(),
+        ], 16);
+
+        Http::fake([
+            'https://oauth.bitrix.info/oauth/token/' => Http::response(['error' => 'invalid_client'], 401),
+        ]);
+
+        $this->assertNull($this->manager->getToken(16));
+        $this->assertTrue($token->fresh()->is_active);
+        $this->assertSame('old-refresh', $token->fresh()->refresh_token);
+    }
+
+    public function test_it_keeps_token_active_when_refresh_fails_with_unauthorized_client(): void
+    {
+        $token = $this->manager->storeToken([
+            'domain' => 'portal.bitrix24.ru',
+            'access_token' => 'old-access',
+            'refresh_token' => 'old-refresh',
+            'expires' => Carbon::now()->subHour()->getTimestamp(),
+        ], 17);
+
+        Http::fake([
+            'https://oauth.bitrix.info/oauth/token/' => Http::response(['error' => 'unauthorized_client'], 400),
+        ]);
+
+        $this->assertNull($this->manager->getToken(17));
+        $this->assertTrue($token->fresh()->is_active);
+        $this->assertSame('old-refresh', $token->fresh()->refresh_token);
+    }
+
+    public function test_it_does_not_retry_refresh_token_requests(): void
+    {
+        $token = $this->manager->storeToken([
+            'domain' => 'portal.bitrix24.ru',
+            'access_token' => 'old-access',
+            'refresh_token' => 'old-refresh',
+            'expires' => Carbon::now()->subHour()->getTimestamp(),
+        ], 18);
+
+        config()->set('bitrix24.api.retry_attempts', 3);
+        config()->set('bitrix24.api.retry_delay', 0);
+
+        Http::fake([
+            'https://oauth.bitrix.info/oauth/token/' => Http::sequence()
+                ->push(['error' => 'temporarily_unavailable'], 503)
+                ->push(['error' => 'invalid_grant'], 400),
+        ]);
+
+        $this->assertNull($this->manager->getToken(18));
+        $this->assertTrue($token->fresh()->is_active);
+        $this->assertSame('old-refresh', $token->fresh()->refresh_token);
+        Http::assertSentCount(1);
+    }
+
     public function test_it_keeps_token_active_when_refresh_hits_rate_limit(): void
     {
         $token = $this->manager->storeToken([
