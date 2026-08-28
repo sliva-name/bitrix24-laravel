@@ -230,7 +230,12 @@ readonly class TokenManager
      */
     private function requestOAuthToken(ConnectionConfig $config, array $params): array
     {
-        $attempts = max(1, (int) config('bitrix24.api.retry_attempts', 3));
+        // Refresh tokens are single-use. Retrying after a timeout can hit
+        // invalid_grant for a rotation that already succeeded, then deactivate
+        // credentials that are still recoverable.
+        $attempts = ($params['grant_type'] ?? null) === 'refresh_token'
+            ? 1
+            : max(1, (int) config('bitrix24.api.retry_attempts', 3));
         $delay = (int) config('bitrix24.api.retry_delay', 1000);
 
         $response = retry($attempts, function () use ($config, $params) {
@@ -291,12 +296,12 @@ readonly class TokenManager
 
     private function isPermanentOAuthError(mixed $error): bool
     {
+        // Only errors that mean *this refresh token* can never succeed again.
+        // invalid_client / unauthorized_client are app-credential problems:
+        // deactivating would force every user to re-consent after a secret typo.
         return is_string($error) && in_array($error, [
             'invalid_grant',
             'invalid_token',
-            'invalid_client',
-            'unauthorized_client',
-            'unsupported_grant_type',
         ], true);
     }
 
